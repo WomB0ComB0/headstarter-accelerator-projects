@@ -7,3 +7,4 @@ openai
 python-dotenv
 plotly-express
 plotly
+imbalanced-learn
