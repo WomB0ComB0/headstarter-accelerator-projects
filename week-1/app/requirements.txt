@@ -1,0 +1,9 @@
+streamlit
+pandas
+numpy
+scikit-learn
+xgboost
+openai
+python-dotenv
+plotly-express
+plotly

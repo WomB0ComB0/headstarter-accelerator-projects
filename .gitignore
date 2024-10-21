@@ -1,1 +1,9 @@
 venv
+env
+.env
+*.joblib
+*.pickle
+*.csv
+*.json
+*.log
+
