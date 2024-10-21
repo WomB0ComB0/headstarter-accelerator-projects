@@ -5,9 +5,7 @@ import numpy as np
 import sklearn
 import os
 from openai import OpenAI
-from dotenv import load_dotenv
 import utils
-load_dotenv(dotenv_path=".env")
 
 client = OpenAI(
     base_url="https://api.groq.com/openai/v1",
@@ -16,20 +14,32 @@ client = OpenAI(
 
 
 def load_model(file_name):
-    with open(file_name, "rb") as file:
-        return pickle.load(file, fix_imports=True, encoding="latin1", errors="strict")
+    try:
+        with open(file_name, "rb") as file:
+            return pickle.load(file, fix_imports=True, encoding="latin1", errors="strict")
+    except FileNotFoundError:
+        st.error(f"Model file not found: {file_name}")
+        return None
 
 
-xgb_model = load_model("models/xgb_model.pkl")
-voting_model = load_model("models/voting_model.pkl")
-naive_bayes_model = load_model("models/nb_model.pkl")
-random_forest_model = load_model("models/rf_model.pkl")
-decision_tree_model = load_model("models/dt_model.pkl")
-svm_model = load_model("models/svc_model.pkl")
-knn_model = load_model("models/knn_model.pkl")
-voting_classifier_model = load_model("models/voting_model.pkl")
-xgb_model_smote = load_model("models/xgb_model_smote.pkl")
-xgb_model_improved = load_model("models/xgb_model_improved.pkl")
+# Load models
+model_files = [
+    "xgb_model.pkl", "voting_model.pkl", "nb_model.pkl", "rf_model.pkl",
+    "dt_model.pkl", "svc_model.pkl", "knn_model.pkl", "xgb_model_smote.pkl",
+    "xgb_model_improved.pkl"
+]
+
+models = {}
+for model_file in model_files:
+    model_name = model_file.split('.')[0]
+    models[model_name] = load_model(f"models/{model_file}")
+
+# Check if all models are loaded
+if all(model is not None for model in models.values()):
+    st.success("All models loaded successfully!")
+else:
+    st.error("Some models failed to load. Please check the model files and their locations.")
+    st.stop()
 
 print(f"Current scikit-learn version: {sklearn.__version__}")
 
@@ -68,9 +78,9 @@ def prepare_input(
 
 def make_predictions(input_df, input_dict):
     probabilities = {
-        "XGBoost": xgb_model.predict_proba(input_df)[:, 1][0],
-        "RandomForest": random_forest_model.predict_proba(input_df)[:, 1][0],
-        "KNN": knn_model.predict_proba(input_df)[:, 1][0],
+        "XGBoost": models["xgb_model"].predict_proba(input_df)[:, 1][0],
+        "RandomForest": models["rf_model"].predict_proba(input_df)[:, 1][0],
+        "KNN": models["knn_model"].predict_proba(input_df)[:, 1][0],
     }
 
     avg_probability = np.mean(list(probabilities.values()))
@@ -185,7 +195,13 @@ def explain_prediction(probability, input_dict, surname):
 
 st.title("Customer Churn Prediction")
 
-df = pd.read_csv("churn.csv")
+# Load the dataset
+try:
+    df = pd.read_csv("churn.csv")
+    st.success("Dataset loaded successfully!")
+except FileNotFoundError:
+    st.error("Dataset file 'churn.csv' not found. Please make sure it's in the correct location.")
+    st.stop()
 
 customers = [f"{row['CustomerId']} - {row['Surname']}" for _, row in df.iterrows()]
 
