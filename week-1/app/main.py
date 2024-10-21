@@ -7,6 +7,8 @@ import os
 from openai import OpenAI
 import utils
 
+st.set_page_config(layout="wide")
+
 client = OpenAI(
     base_url="https://api.groq.com/openai/v1",
     api_key=st.secrets["GROQ_API_KEY"]
@@ -22,6 +24,20 @@ def load_model(file_name):
         return None
 
 
+# Display current working directory and list files
+st.write(f"Current working directory: {os.getcwd()}")
+st.write("Files in current directory:")
+st.write(os.listdir())
+
+# Check if 'models' directory exists
+if not os.path.exists("models"):
+    st.error("'models' directory not found. Creating it now.")
+    os.makedirs("models")
+
+# List files in 'models' directory
+st.write("Files in 'models' directory:")
+st.write(os.listdir("models"))
+
 # Load models
 model_files = [
     "xgb_model.pkl", "voting_model.pkl", "nb_model.pkl", "rf_model.pkl",
@@ -32,7 +48,7 @@ model_files = [
 models = {}
 for model_file in model_files:
     model_name = model_file.split('.')[0]
-    models[model_name] = load_model(f"./models/{model_file}")
+    models[model_name] = load_model(f"models/{model_file}")
 
 # Check if all models are loaded
 if all(model is not None for model in models.values()):
@@ -201,6 +217,8 @@ try:
     st.success("Dataset loaded successfully!")
 except FileNotFoundError:
     st.error("Dataset file 'churn.csv' not found. Please make sure it's in the correct location.")
+    st.write("Files in current directory:")
+    st.write(os.listdir())
     st.stop()
 
 customers = [f"{row['CustomerId']} - {row['Surname']}" for _, row in df.iterrows()]
