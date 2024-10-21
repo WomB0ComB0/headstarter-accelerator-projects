@@ -1,10 +1,10 @@
 streamlit
 pandas
 numpy
-scikit-learn
-xgboost
+scikit-learn==1.0.2
+xgboost==1.6.2
 openai
 python-dotenv
 plotly-express
 plotly
-imbalanced-learn
+imbalanced-learn==0.10.1

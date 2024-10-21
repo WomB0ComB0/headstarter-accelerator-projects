@@ -29,14 +29,12 @@ st.write(f"Current working directory: {os.getcwd()}")
 st.write("Files in current directory:")
 st.write(os.listdir())
 
-# Check if 'models' directory exists
-if not os.path.exists("models"):
-    st.error("'models' directory not found. Creating it now.")
-    os.makedirs("models")
-
-# List files in 'models' directory
-st.write("Files in 'models' directory:")
-st.write(os.listdir("models"))
+# Check if 'week-1/out' directory exists
+if not os.path.exists("week-1/out"):
+    st.error("'week-1/out' directory not found.")
+else:
+    st.write("Files in 'week-1/out' directory:")
+    st.write(os.listdir("week-1/out"))
 
 # Load models
 model_files = [
@@ -48,7 +46,7 @@ model_files = [
 models = {}
 for model_file in model_files:
     model_name = model_file.split('.')[0]
-    models[model_name] = load_model(f"models/{model_file}")
+    models[model_name] = load_model(f"week-1/out/{model_file}")
 
 # Check if all models are loaded
 if all(model is not None for model in models.values()):
@@ -213,7 +211,7 @@ st.title("Customer Churn Prediction")
 
 # Load the dataset
 try:
-    df = pd.read_csv("churn.csv")
+    df = pd.read_csv("week-1/data/churn.csv")
     st.success("Dataset loaded successfully!")
 except FileNotFoundError:
     st.error("Dataset file 'churn.csv' not found. Please make sure it's in the correct location.")
