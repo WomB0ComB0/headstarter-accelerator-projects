@@ -19,8 +19,8 @@ def load_model(file_name):
     try:
         with open(file_name, "rb") as file:
             return pickle.load(file, fix_imports=True, encoding="latin1", errors="strict")
-    except FileNotFoundError:
-        st.error(f"Model file not found: {file_name}")
+    except (FileNotFoundError, EOFError) as e:
+        st.warning(f"Error loading model {file_name}: {str(e)}")
         return None
 
 
@@ -38,21 +38,21 @@ else:
 
 # Load models
 model_files = [
-    "xgb_model.pkl", "voting_model.pkl", "nb_model.pkl", "rf_model.pkl",
-    "dt_model.pkl", "svc_model.pkl", "knn_model.pkl", "xgb_model_smote.pkl",
-    "xgb_model_improved.pkl"
+    "rf_model.pkl", "nb_model.pkl", "dt_model.pkl", "knn_model.pkl"
 ]
 
 models = {}
 for model_file in model_files:
     model_name = model_file.split('.')[0]
-    models[model_name] = load_model(f"week-1/out/{model_file}")
+    model = load_model(f"week-1/out/{model_file}")
+    if model is not None:
+        models[model_name] = model
 
-# Check if all models are loaded
-if all(model is not None for model in models.values()):
-    st.success("All models loaded successfully!")
+# Check if any models are loaded
+if models:
+    st.success(f"Successfully loaded {len(models)} models: {', '.join(models.keys())}")
 else:
-    st.error("Some models failed to load. Please check the model files and their locations.")
+    st.error("No models could be loaded. Please check the model files and their locations.")
     st.stop()
 
 print(f"Current scikit-learn version: {sklearn.__version__}")
@@ -91,11 +91,17 @@ def prepare_input(
 
 
 def make_predictions(input_df, input_dict):
-    probabilities = {
-        "XGBoost": models["xgb_model"].predict_proba(input_df)[:, 1][0],
-        "RandomForest": models["rf_model"].predict_proba(input_df)[:, 1][0],
-        "KNN": models["knn_model"].predict_proba(input_df)[:, 1][0],
-    }
+    probabilities = {}
+    for model_name, model in models.items():
+        try:
+            prob = model.predict_proba(input_df)[:, 1][0]
+            probabilities[model_name] = prob
+        except Exception as e:
+            st.warning(f"Error predicting with {model_name}: {str(e)}")
+
+    if not probabilities:
+        st.error("No models were able to make predictions.")
+        return None
 
     avg_probability = np.mean(list(probabilities.values()))
 
@@ -105,7 +111,7 @@ def make_predictions(input_df, input_dict):
         fig = utils.create_gauge_chart(probabilities)
         st.plotly_chart(fig, use_container_width=True)
         st.write(
-            f"The customer has a {round(avg_probability * 100, 1)}% probability of churning."
+            f"The customer has a {round(avg_probability * 100, 1)}% average probability of churning."
         )
 
     with col2:
