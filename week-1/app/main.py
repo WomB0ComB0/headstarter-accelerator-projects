@@ -10,7 +10,8 @@ import utils
 load_dotenv(dotenv_path=".env")
 
 client = OpenAI(
-    base_url="https://api.groq.com/openai/v1", api_key=os.getenv("GROQ_API_KEY")
+    base_url="https://api.groq.com/openai/v1",
+    api_key=st.secrets["GROQ_API_KEY"]
 )
 
 
@@ -19,16 +20,16 @@ def load_model(file_name):
         return pickle.load(file, fix_imports=True, encoding="latin1", errors="strict")
 
 
-xgb_model = load_model("../out/xgb_model.pkl")
-voting_model = load_model("../out/voting_model.pkl")
-naive_bayes_model = load_model("../out/nb_model.pkl")
-random_forest_model = load_model("../out/rf_model.pkl")
-decision_tree_model = load_model("../out/dt_model.pkl")
-svm_model = load_model("../out/svc_model.pkl")
-knn_model = load_model("../out/knn_model.pkl")
-voting_classifier_model = load_model("../out/voting_model.pkl")
-xgb_model_smote = load_model("../out/xgb_model_smote.pkl")
-xgb_model_improved = load_model("../out/xgb_model_improved.pkl")
+xgb_model = load_model("models/xgb_model.pkl")
+voting_model = load_model("models/voting_model.pkl")
+naive_bayes_model = load_model("models/nb_model.pkl")
+random_forest_model = load_model("models/rf_model.pkl")
+decision_tree_model = load_model("models/dt_model.pkl")
+svm_model = load_model("models/svc_model.pkl")
+knn_model = load_model("models/knn_model.pkl")
+voting_classifier_model = load_model("models/voting_model.pkl")
+xgb_model_smote = load_model("models/xgb_model_smote.pkl")
+xgb_model_improved = load_model("models/xgb_model_improved.pkl")
 
 print(f"Current scikit-learn version: {sklearn.__version__}")
 
@@ -184,7 +185,7 @@ def explain_prediction(probability, input_dict, surname):
 
 st.title("Customer Churn Prediction")
 
-df = pd.read_csv("../data/churn.csv")
+df = pd.read_csv("churn.csv")
 
 customers = [f"{row['CustomerId']} - {row['Surname']}" for _, row in df.iterrows()]
 

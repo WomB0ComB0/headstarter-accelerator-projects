@@ -3,7 +3,6 @@ env
 .env
 *.joblib
 *.pickle
-*.csv
 *.json
 *.log
-
+__pycache__
