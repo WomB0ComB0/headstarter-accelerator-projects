@@ -32,7 +32,7 @@ model_files = [
 models = {}
 for model_file in model_files:
     model_name = model_file.split('.')[0]
-    models[model_name] = load_model(f"models/{model_file}")
+    models[model_name] = load_model(f"./models/{model_file}")
 
 # Check if all models are loaded
 if all(model is not None for model in models.values()):
