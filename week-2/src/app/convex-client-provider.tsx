@@ -3,22 +3,34 @@
 import React from 'react'
 import { ConvexReactClient } from 'convex/react'
 import { ConvexProviderWithClerk } from 'convex/react-clerk'
-import { useAuth } from '@clerk/nextjs'
-import { Authenticated, Unauthenticated } from 'convex/react'
-import { SignOutButton, RedirectToSignIn } from '@clerk/nextjs'
+import { ClerkLoaded, ClerkLoading, ClerkProvider, useAuth } from '@clerk/nextjs'
+import { MultisessionAppSupport } from "@clerk/clerk-react/internal";
+
 const convexClient = new ConvexReactClient(process.env.NEXT_PUBLIC_CONVEX_URL! as string);
 
 export const ConvexClientProvider = ({ children }: {
   children: React.ReactNode;
 }) => {
   return (
-    <ConvexProviderWithClerk client={convexClient} useAuth={useAuth}>
-      <Authenticated>
-        {children}
-      </Authenticated>
-      <Unauthenticated>
-        <RedirectToSignIn />
-      </Unauthenticated>
-    </ConvexProviderWithClerk>
+    <ClerkProvider
+      publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+      signInUrl="/sign-in"
+      signUpUrl="/sign-up"
+    >
+      <MultisessionAppSupport>
+        <ConvexProviderWithClerk client={convexClient} useAuth={useAuth}>
+          <ClerkLoading>
+            <Loader />
+          </ClerkLoading>
+          <ClerkLoaded>
+            {children}
+          </ClerkLoaded>
+        </ConvexProviderWithClerk>
+      </MultisessionAppSupport>
+    </ClerkProvider>
   );
 };
+
+const Loader = () => {
+  return <div>Loading...</div>
+}

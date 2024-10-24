@@ -4,6 +4,8 @@ import { v } from "convex/values"
 export const get = query({
   handler: async (ctx) => {
     try {
+      console.log("getting user")
+      console.log(await getCurrentUser(ctx))
       return await getCurrentUser(ctx);
     } catch (error) {
       console.error("Error getting user: ", error)
