@@ -4,5 +4,6 @@ env
 *.joblib
 *.pickle
 *.json
+package-lock.json
 *.log
 __pycache__
