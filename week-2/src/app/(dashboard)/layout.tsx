@@ -1,8 +1,7 @@
 'use client'
 
 import React from 'react'
-import { Authenticated, Unauthenticated } from 'convex/react'
-import { SignOutButton, RedirectToSignIn } from '@clerk/nextjs'
+import { SignOutButton } from '@clerk/nextjs'
 import { User2Icon, PlusIcon } from 'lucide-react'
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupAction, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider } from '@/components/ui/sidebar'
 import Link from 'next/link'
@@ -10,11 +9,8 @@ import { useQuery } from 'convex/react'
 import { api } from '../../../convex/_generated/api'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { useRouter } from 'next/navigation'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const router = useRouter()
-
   return (
     <>
       <SidebarProvider>
