@@ -57,7 +57,6 @@ const validateRequest = async (req: Request) => {
 
   try {
     const wh = new Webhook(process.env.CLERK_WEBHOOK_SECRET! as string);
-    console.log(process.env.CLERK_WEBHOOK_SECRET)
     return wh.verify(text, {
       "svix-id": svix_id,
       "svix-timestamp": svix_timestamp,
