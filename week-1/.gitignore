@@ -1,9 +1,8 @@
 venv
 env
 .env
-*.joblib
-*.pickle
-*.json
-package-lock.json
-*.log
+/*.joblib
+/*.pickle
+/*.json
+/*.log
 __pycache__
