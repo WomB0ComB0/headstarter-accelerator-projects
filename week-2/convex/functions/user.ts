@@ -3,7 +3,12 @@ import { v } from "convex/values"
 
 export const get = query({
   handler: async (ctx) => {
-    return await getCurrentUser(ctx);
+    try {
+      return await getCurrentUser(ctx);
+    } catch (error) {
+      console.error("Error getting user: ", error)
+      throw new Error(`${error instanceof Error ? error.message : `Unknown error @${get.name}`}`)
+    }
   }
 })
 
@@ -45,6 +50,7 @@ export const remove = internalMutation({
 
 const getCurrentUser = async (ctx: QueryCtx | MutationCtx) => {
   const identity = await ctx.auth.getUserIdentity();
+  console.log("identity", identity)
   if (!identity) {
     throw new Error(`Unauthorized @${getCurrentUser.name}`);
   }
@@ -52,5 +58,6 @@ const getCurrentUser = async (ctx: QueryCtx | MutationCtx) => {
 }
 
 const getUserByClerkId = (ctx: QueryCtx | MutationCtx, clerkId: string) => {
+  console.log("clerkId", clerkId)
   return ctx.db.query("users").withIndex("by_clerk_id", (q) => q.eq("clerkId", clerkId)).unique();
 }

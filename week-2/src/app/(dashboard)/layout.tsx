@@ -31,10 +31,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
 function DashboardSidebar() {
   const user = useQuery(api.functions.user.get)
-
-  if (user === undefined) return <div>Loading...</div>
-  if (user === null) return <div>Error loading user data</div>
-
   return (
     <Sidebar>
       <SidebarContent>
@@ -73,13 +69,13 @@ function DashboardSidebar() {
                   <DropdownMenuTrigger asChild>
                     <SidebarMenuButton className="flex items-center gap-2">
                       <Avatar className="size-6">
-                        <AvatarImage src={user.image} />
+                        <AvatarImage src={user?.image} />
                         <AvatarFallback>
-                          {user.username[0]}
+                          {user?.username[0]}
                         </AvatarFallback>
                       </Avatar>
                       <span className="text-sm font-medium">
-                        {user.username}
+                        {user?.username}
                       </span>
                     </SidebarMenuButton>
                   </DropdownMenuTrigger>
