@@ -3,9 +3,9 @@
 import React from 'react'
 import { ConvexReactClient } from 'convex/react'
 import { ConvexProviderWithClerk } from 'convex/react-clerk'
-import { ClerkLoading, ClerkProvider, RedirectToSignIn, useAuth } from '@clerk/nextjs'
+import { ClerkProvider, RedirectToSignIn, useAuth } from '@clerk/nextjs'
 import { MultisessionAppSupport } from "@clerk/clerk-react/internal";
-import { Authenticated, Unauthenticated } from 'convex/react'; 
+import { Authenticated, Unauthenticated, AuthLoading } from 'convex/react'; 
 
 const convexClient = new ConvexReactClient(process.env.NEXT_PUBLIC_CONVEX_URL! as string);
 
@@ -20,9 +20,9 @@ export const ConvexClientProvider = ({ children }: {
     >
       <MultisessionAppSupport>
         <ConvexProviderWithClerk client={convexClient} useAuth={useAuth}>
-          <ClerkLoading>
+          <AuthLoading>
             <Loader />
-          </ClerkLoading>
+          </AuthLoading>
           <Authenticated>
             {children}
           </Authenticated>
