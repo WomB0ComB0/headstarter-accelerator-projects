@@ -19,10 +19,11 @@ export default function ChatApp() {
   const createMessage = useMutation(api.functions.message.create)
   const [input, setInput] = useState('')
   const scrollAreaRef = useRef<HTMLDivElement>(null)
+  const lastMessageRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight
+    if (lastMessageRef.current) {
+      lastMessageRef.current.scrollIntoView({ behavior: 'smooth' })
     }
   }, [messages])
 
@@ -48,14 +49,15 @@ export default function ChatApp() {
             {messages?.map((message, index) => (
               <div
                 key={index}
-                className={`mb-4 ${message.sender === 'User' ? 'text-right' : 'text-left'
-                  }`}
+                ref={index === messages.length - 1 ? lastMessageRef : null}
+                className={`mb-4 ${message.sender === 'User' ? 'text-right' : 'text-left'}`}
               >
                 <div
-                  className={`inline-block p-2 rounded-lg ${message.sender === 'User'
+                  className={`inline-block p-2 rounded-lg ${
+                    message.sender === 'User'
                       ? 'bg-primary text-primary-foreground'
                       : 'bg-secondary text-secondary-foreground'
-                    }`}
+                  }`}
                 >
                   <p className="font-semibold">{message.sender}</p>
                   <p>{message.content}</p>
