@@ -12,6 +12,7 @@ import time
 from typing import Dict, Any, Optional
 import logging
 from sklearn.base import BaseEstimator
+import utils as utils
 
 # Configure logging
 logging.basicConfig(
@@ -138,27 +139,27 @@ def create_transaction_summary(input_data: Dict[str, Any]) -> None:
             )
 
 
-def make_predictions(
-    input_data: pd.DataFrame, models: Dict[str, BaseEstimator]
-) -> Dict[str, Dict[str, Any]]:
+def make_predictions(input_data: pd.DataFrame, models: Dict[str, BaseEstimator]) -> Dict[str, Dict[str, Any]]:
     """Make predictions with ensemble voting and confidence scores."""
     results = {}
     weights = {
-        "rf_model": 0.4,  # Random Forest gets highest weight
-        "xgb_model": 0.3,  # XGBoost gets second highest
-        "dt_model": 0.3,  # Decision Tree third
+        "rf_model": 0.4,
+        "xgb_model": 0.3,
+        "dt_model": 0.3,
     }
-
+    
+    # Preprocess input data
+    processed_data = utils.prepare_features(input_data)
+    
     ensemble_proba = 0
     total_weight = 0
 
     for name, model in models.items():
         try:
-            prediction = model.predict(input_data)[0]
-            probability = model.predict_proba(input_data)[0][1]
+            prediction = model.predict(processed_data)[0]
+            probability = model.predict_proba(processed_data)[0][1]
 
-            # Add to ensemble calculation
-            weight = weights.get(name, 0.25)  # Default weight if not specified
+            weight = weights.get(name, 0.25)
             ensemble_proba += probability * weight
             total_weight += weight
 
@@ -170,7 +171,6 @@ def make_predictions(
             logger.error(f"Error with {name} model: {e}")
             st.warning(f"⚠️ {name.upper()} model prediction failed")
 
-    # Calculate ensemble result
     if total_weight > 0:
         ensemble_proba /= total_weight
         results["ensemble"] = {
