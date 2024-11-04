@@ -57,6 +57,21 @@ def prepare_features(input_data: pd.DataFrame) -> pd.DataFrame:
     numeric_columns = ['amt', 'age', 'distance', 'city_pop', 'trans_timestamp']
     input_data[numeric_columns] = input_data[numeric_columns].astype(float)
     
-    # Reorder columns to match training order
-    correct_order = ['amt', 'age', 'distance', 'city_pop', 'category', 'gender', 'job', 'trans_timestamp']
-    return input_data[correct_order]
+    # Reorder columns to match training order exactly
+    correct_order = [
+        'age',
+        'amt', 
+        'category',
+        'city_pop',
+        'distance',
+        'gender',
+        'job',
+        'trans_timestamp'
+    ]
+    
+    # Create a new DataFrame with the correct order
+    ordered_df = pd.DataFrame(columns=correct_order)
+    for col in correct_order:
+        ordered_df[col] = input_data[col]
+    
+    return ordered_df
