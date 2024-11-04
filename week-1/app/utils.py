@@ -3,7 +3,9 @@ import numpy as np
 
 
 def create_gauge_chart(probabilities):
-    avg_probability = np.mean(list(probabilities.values())) * 100  # Convert to percentage
+    avg_probability = (
+        np.mean(list(probabilities.values())) * 100
+    )  # Convert to percentage
 
     if avg_probability < 30:
         color = "rgba(0, 255, 0, 0.3)"
@@ -22,10 +24,7 @@ def create_gauge_chart(probabilities):
             },
             title={
                 "text": "Average Probability of Churn",
-                "font": {
-                  "size": 24,
-                  "color": "white"
-                }
+                "font": {"size": 24, "color": "white"},
             },
             number={
                 "font": {
@@ -84,25 +83,28 @@ def create_gauge_chart(probabilities):
 
     return fig
 
+
 def create_probability_chart(probabilities):
     models = list(probabilities.keys())
     probs = [prob * 100 for prob in probabilities.values()]  # Convert to percentages
-    
-    fig = go.Figure(data=[
-      go.Bar(
-        y=models,
-        x=probs,
-        orientation="h",
-        text=[f"{p:.2f}%" for p in probs],
-        textposition="auto",
-      )
-    ])
-    
+
+    fig = go.Figure(
+        data=[
+            go.Bar(
+                y=models,
+                x=probs,
+                orientation="h",
+                text=[f"{p:.2f}%" for p in probs],
+                textposition="auto",
+            )
+        ]
+    )
+
     fig.update_layout(
         title="Churn Probability by Model",
         yaxis_title="Models",
         xaxis_title="Probability",
-        xaxis=dict(tickformat='.0%', range=[0, 100]),
+        xaxis=dict(tickformat=".0%", range=[0, 100]),
         height=400,
         margin=dict(l=20, r=20, t=40, b=20),
         paper_bgcolor="rgba(0,0,0,0)",
