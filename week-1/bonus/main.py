@@ -28,12 +28,12 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Custom CSS for better UI
+# Custom CSS for better UI with dark theme
 st.markdown(
     """
     <style>
     .main {
-        background-color: #f5f7f9;
+        background-color: #0e1117;
         padding: 2rem;
     }
     .stButton>button {
@@ -45,24 +45,36 @@ st.markdown(
         font-weight: bold;
     }
     .fraud-alert {
-        background-color: #ffebee;
+        background-color: rgba(255, 23, 68, 0.2);
         border-left: 5px solid #ff1744;
         padding: 1rem;
         margin: 1rem 0;
         border-radius: 4px;
+        color: #ffffff;
     }
     .safe-alert {
-        background-color: #e8f5e9;
+        background-color: rgba(0, 200, 83, 0.2);
         border-left: 5px solid #00c853;
         padding: 1rem;
         margin: 1rem 0;
         border-radius: 4px;
+        color: #ffffff;
     }
     .metric-container {
-        background-color: white;
+        background-color: rgba(255, 255, 255, 0.1);
         padding: 1rem;
         border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        color: #ffffff;
+    }
+    .metric-container p {
+        color: #ffffff !important;
+    }
+    div[data-testid="stMetricValue"] {
+        color: #ffffff;
+    }
+    div[data-testid="stMetricLabel"] {
+        color: rgba(255, 255, 255, 0.8);
     }
     </style>
 """,
