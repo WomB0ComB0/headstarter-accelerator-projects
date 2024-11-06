@@ -303,7 +303,7 @@ def main():
 
     # Initialize services
     client = initialize_openai_client()
-    models = load_models("week-1/out/bonus/models")
+    models = load_models("week-2/out/models")
 
     # Create input form
     with st.form("transaction_form"):
