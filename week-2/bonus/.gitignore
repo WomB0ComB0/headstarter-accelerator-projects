@@ -1,0 +1,8 @@
+venv
+env
+.env
+/*.joblib
+/*.pickle
+/*.json
+/*.log
+__pycache__
