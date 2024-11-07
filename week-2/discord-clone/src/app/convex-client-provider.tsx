@@ -17,6 +17,7 @@ export const ConvexClientProvider = ({ children }: {
       publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
       signInUrl="/sign-in"
       signUpUrl="/sign-up"
+      // dynamic
     >
       <MultisessionAppSupport>
         <ConvexProviderWithClerk client={convexClient} useAuth={useAuth}>
