@@ -1,3 +1,6 @@
 Testing
 Training
 kaggle.json
+.env
+/env
+.env.local

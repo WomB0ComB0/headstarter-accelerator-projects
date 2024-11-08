@@ -1,0 +1,13 @@
+streamlit
+pandas
+numpy
+scikit-learn
+python-dotenv
+plotly-express
+plotly
+kagglehub
+pyngrok
+google-generativeai
+opencv-python
+pillow
+tensorflow
