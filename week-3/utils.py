@@ -1,60 +1,71 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import tensorflow as tf
-from typing import Tuple
+from functools import lru_cache
 import os
-import PIL.Image
+from typing import Tuple, Any
 import numpy as np
 import cv2
-import streamlit as st
-import genai
+import PIL.Image
+import tensorflow as tf
+import google.generative as genai
+from dataclasses import dataclass
 
-genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+@dataclass
+class ImageProcessingConfig:
+    """Configuration for image processing parameters"""
+    blur_kernel: Tuple[int, int] = (11, 11)
+    threshold_percentile: float = 80
+    heatmap_alpha: float = 0.7
+    original_alpha: float = 0.3
 
+@lru_cache(maxsize=1)
 def load_xception_model(path: str) -> tf.keras.Model:
-    """Load a pre-trained Xception model for image classification.
-
-    Args:
-        path (str): Path to the model weights.
-
-    Returns:
-        tf.keras.Model: A compiled Keras model.
-    """
-    img_shape: Tuple[int, int, int] = (299, 299, 3)
-    base_model: tf.keras.Model = tf.keras.applications.Xception(
+    """Load and cache the Xception model"""
+    img_shape = (299, 299, 3)
+    base_model = tf.keras.applications.Xception(
         input_shape=img_shape,
         include_top=False,
         weights="imagenet",
         pooling="max",
     )
-
-    model: tf.keras.Model = tf.keras.Sequential(
-        [
-            base_model,
-            tf.keras.layers.Flatten(),
-            tf.keras.layers.Dropout(rate=0.3),
-            tf.keras.layers.Dense(128, activation="relu"),
-            tf.keras.layers.Dropout(rate=0.25),
-            tf.keras.layers.Dense(4, activation="softmax"),
-        ]
-    )
-
+    
+    model = tf.keras.Sequential([
+        base_model,
+        tf.keras.layers.Flatten(),
+        tf.keras.layers.Dropout(0.3),
+        tf.keras.layers.Dense(128, activation="relu"),
+        tf.keras.layers.Dropout(0.25),
+        tf.keras.layers.Dense(4, activation="softmax"),
+    ])
+    
     model.build((None,) + img_shape)
-
+    
     model.compile(
         optimizer=tf.keras.optimizers.Adamax(learning_rate=0.001),
         loss="categorical_crossentropy",
-        metrics=[
-            "accuracy",
-            tf.keras.metrics.Precision(),
-            tf.keras.metrics.Recall(),
-        ],
+        metrics=["accuracy", tf.keras.metrics.Precision(), tf.keras.metrics.Recall()],
     )
+    
     model.load_weights(path)
-
     return model
 
+def create_circular_mask(img_size: Tuple[int, int]) -> np.ndarray:
+    """Create a circular mask for the brain region"""
+    center = (img_size[0] // 2, img_size[1] // 2)
+    radius = min(center[0], center[1]) - 10
+    y, x = np.ogrid[:img_size[0], :img_size[1]]
+    return (pow((x - center[0]), 2) + pow((y - center[1]), 2)) <= pow(radius, 2)
+
+def normalize_gradients(gradients: np.ndarray, mask: np.ndarray) -> np.ndarray:
+    """Normalize gradients within the brain region"""
+    brain_gradients = gradients[mask]
+    if brain_gradients.max() > brain_gradients.min():
+        brain_gradients = (brain_gradients - brain_gradients.min()) / (
+            brain_gradients.max() - brain_gradients.min()
+        )
+    gradients[mask] = brain_gradients
+    return gradients
 
 def generate_saliency_map(
     model: tf.keras.Model,
@@ -62,105 +73,79 @@ def generate_saliency_map(
     class_index: int,
     img_size: Tuple[int, int],
     img: PIL.Image.Image,
-    upload_file: st.uploaded_file_manager.UploadedFile,
+    upload_file: Any,
     output_dir: str,
+    config: ImageProcessingConfig = ImageProcessingConfig()
 ) -> np.ndarray:
-    """Generate a saliency map for a given image.
-
-    Args:
-        model (tf.keras.Model): A compiled Keras model.
-        img_array (np.ndarray): An image array.
-        class_index (int): The index of the class to generate the saliency map for.
-        img_size (Tuple[int, int]): The size of the image.
-
-    Returns:
-        np.ndarray: A saliency map.
-    """
+    """Generate saliency map with improved gradient processing"""
+    
+    # Calculate gradients
     with tf.GradientTape() as tape:
-        img_tensor: tf.Tensor = tf.convert_to_tensor(img_array)
+        img_tensor = tf.convert_to_tensor(img_array)
         tape.watch(img_tensor)
-        predictions: tf.Tensor = model(img_tensor)
-        target_class: tf.Tensor = predictions[:, class_index]
-
-    gradients: tf.Tensor = tape.gradient(target_class, img_tensor)
-    gradients = tf.abs(gradients)
-    gradients = tf.reduce_max(gradients, axis=-1)
-    gradients = gradients.numpy().squeeze()
-
+        predictions = model(img_tensor)
+        target_class = predictions[:, class_index]
+    
+    # Process gradients
+    gradients = tf.abs(tape.gradient(target_class, img_tensor))
+    gradients = tf.reduce_max(gradients, axis=-1).numpy().squeeze()
     gradients = cv2.resize(gradients, img_size)
-
-    center: Tuple[int, int] = (img_size[0] // 2, img_size[1] // 2)
-    radius: int = min(center[0], center[1]) - 10
-    (y, x) = np.ogrid[: img_size[0], : img_size[1]]
-    mask: np.ndarray = (pow((x - center[0]), 2) + pow((y - center[1]), 2)) <= pow(
-        radius, 2
-    )
+    
+    # Apply circular mask
+    mask = create_circular_mask(img_size)
     gradients *= mask
-
-    brain_gradients = gradients[mask]
-    if brain_gradients.max() > brain_gradients.min():
-        brain_gradients = (brain_gradients - brain_gradients.min()) / (
-            brain_gradients.max() - brain_gradients.min()
-        )
-    gradients[mask] = brain_gradients
-
-    threshold: float = np.percentile(gradients[mask], 80)
+    
+    # Normalize and threshold gradients
+    gradients = normalize_gradients(gradients, mask)
+    threshold = np.percentile(gradients[mask], config.threshold_percentile)
     gradients[gradients < threshold] = 0
-
-    gradients = cv2.GaussianBlur(gradients, (11, 11), 0)
-
-    heatmap: np.ndarray = cv2.applyColorMap(np.uint8(255 * gradients), cv2.COLORMAP_JET)
+    
+    # Apply Gaussian blur
+    gradients = cv2.GaussianBlur(gradients, config.blur_kernel, 0)
+    
+    # Create heatmap
+    heatmap = cv2.applyColorMap(np.uint8(255 * gradients), cv2.COLORMAP_JET)
     heatmap = cv2.cvtColor(heatmap, cv2.COLOR_BGR2RGB)
-
-    heatmap: np.ndarray = cv2.resize(heatmap, img_size)
-
-    original_img: np.ndarray = tf.keras.preprocessing.image.img_to_array(img)
-    superimposed_img: np.ndarray = heatmap * 0.7 + original_img * 0.3
-    superimposed_img: np.ndarray = superimposed_img.astype(np.uint8)
-
-    img_path: str = os.path.join(output_dir, upload_file.name)
-    with open(img_path, "wb", encoding="utf-8") as f:
+    heatmap = cv2.resize(heatmap, img_size)
+    
+    # Combine with original image
+    original_img = np.array(img)
+    superimposed_img = (heatmap * config.heatmap_alpha + 
+                       original_img * config.original_alpha)
+    superimposed_img = superimposed_img.astype(np.uint8)
+    
+    # Save results
+    img_path = os.path.join(output_dir, upload_file.name)
+    with open(img_path, "wb") as f:
         f.write(upload_file.getbuffer())
-
-    saliency_map_path: str = os.path.join(
-        output_dir, f"saliency_maps/{upload_file.name}"
-    )
-
+    
+    saliency_map_path = os.path.join(output_dir, f"saliency_maps/{upload_file.name}")
     cv2.imwrite(saliency_map_path, cv2.cvtColor(superimposed_img, cv2.COLOR_RGB2BGR))
-
+    
     return superimposed_img
 
-
-def generate_explanation(img_path: str, model_prediction: str, confidence: float) -> str:
-    """Generate an explanation for the model's prediction using Gemini.
-
-    Args:
-        img_path (str): Path to the image file
-        model_prediction (str): The model's prediction class
-        confidence (float): The model's confidence score
-
-    Returns:
-        str: Generated explanation text
-    """
-    prompt: str = f"""You are an expert neurologist. You are tasked with explaining a saliency map of a brain tumor MRI scan.
-    The saliency map was generated by a deep learning model that was trained to classify brain tumors
-    as either glioma, meningioma, pituitary, or no tumor.
-
-    The saliency map highlights the regions of the image that the machine learning model is focusing on to make the prediction.
-
-    The deep learning model predicted the image to be of class '{model_prediction}' with a confidence of {confidence * 100}%.
-
-    In your response:
-    - Explain what regions of the brain the model is focusing on, based on the saliency map. Refer to the regions highlighted
-    in light cyan, those are the regions where the model is focusing on.
-    - Explain possible reasons why the model made the prediction it did.
-    - Don't mention anything like 'The saliency map highlights the regions the model is focusing on, which are in light cyan'
-    in your explanation.
-    - Keep your explanation to 4 sentences max.
+def generate_explanation(
+    img_path: str,
+    model_prediction: str,
+    confidence: float,
+) -> str:
+    """Generate explanation using Gemini with improved prompt"""
+    prompt = f"""You are an expert neurologist analyzing a brain tumor MRI scan saliency map.
     
-    Let's think step by step about this. Verify step by step.
+    Context:
+    - The deep learning model predicted: {model_prediction}
+    - Confidence level: {confidence * 100:.1f}%
+    - The light cyan regions indicate areas of model focus
+    
+    Please provide a 4-sentence analysis that:
+    1. Identifies specific brain regions highlighted in the saliency map
+    2. Explains the anatomical significance of these regions
+    3. Connects these observations to the model's prediction
+    4. Evaluates the confidence level in context of the visible features
+    
+    Focus on medical accuracy and clarity while avoiding technical ML terminology.
     """
-
+    
     img = PIL.Image.open(img_path)
     model = genai.GenerativeModel(model_name="gemini-1.5-flash")
     response = model.generate_content([prompt, img])
