@@ -1,5 +1,8 @@
 Testing
 Training
+saliency_maps/
+.idea/
+
 kaggle.json
 # Ignore system files
 .DS_Store

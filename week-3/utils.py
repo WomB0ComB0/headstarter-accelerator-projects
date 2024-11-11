@@ -12,7 +12,8 @@ from dataclasses import dataclass
 import requests
 import logging
 from pathlib import Path
-import google.generative as genai
+import google.generativeai as genai
+import kagglehub
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -62,21 +63,30 @@ def setup_model_directory(base_path: str = "models") -> str:
 @lru_cache(maxsize=2)
 def load_model(model_type: str, weights_path: Optional[str] = None) -> tf.keras.Model:
     """Load and cache the specified model"""
-    model_config = ModelRegistry.get_model_config(
-        "xception" if "xception" in model_type.lower() else "cnn"
-    )
-
-    if model_config is None:
-        raise ValueError(f"Unsupported model type: {model_type}")
-
-    if "xception" in model_type.lower():
-        return load_xception_model(
-            weights_path if weights_path else model_config["weights_file"]
+    try:
+        model_config = ModelRegistry.get_model_config(
+            "xception" if "xception" in model_type.lower() else "cnn"
         )
-    else:
-        return load_cnn_model(
-            weights_path if weights_path else model_config["weights_file"]
+
+        if model_config is None:
+            raise ValueError(f"Unsupported model type: {model_type}")
+
+        # Download model using kagglehub
+        logger.info("Downloading model from Kaggle...")
+        model_name = "xception_model.weights.h5" if "xception" in model_type.lower() else "cnn_model.h5"
+        model_path = kagglehub.model_download(
+            "mikeodnis/brain_tumor_cnn/tensorFlow2/default"
         )
+        weights_path = os.path.join(model_path, model_name)
+        logger.info(f"Model downloaded to: {weights_path}")
+
+        if "xception" in model_type.lower():
+            return load_xception_model(weights_path)
+        else:
+            return load_cnn_model(weights_path)
+    except Exception as e:
+        logger.error(f"Error loading model: {str(e)}")
+        raise
 
 
 def load_xception_model(weights_path: str) -> tf.keras.Model:
@@ -257,24 +267,40 @@ def generate_explanation(
     confidence: float,
 ) -> str:
     """Generate explanation using Gemini with improved prompt"""
-    prompt = f"""You are an expert neurologist analyzing a brain tumor MRI scan saliency map.
-    
-    Context:
-    - The deep learning model predicted: {model_prediction}
-    - Confidence level: {confidence * 100:.1f}%
-    - The light cyan regions indicate areas of model focus
-    
-    Please provide a 4-sentence analysis that:
-    1. Identifies specific brain regions highlighted in the saliency map
-    2. Explains the anatomical significance of these regions
-    3. Connects these observations to the model's prediction
-    4. Evaluates the confidence level in context of the visible features
-    
-    Focus on medical accuracy and clarity while avoiding technical ML terminology.
-    """
+    try:
+        # Get API key from environment or secrets
+        if os.getenv("STREAMLIT_RUNTIME"):
+            api_key = st.secrets["GOOGLE_API_KEY"]
+        else:
+            api_key = os.getenv("GOOGLE_API_KEY")
+        
+        if not api_key:
+            raise ValueError("Google API key not found in environment variables or secrets")
 
-    img = PIL.Image.open(img_path)
-    model = genai.GenerativeModel(model_name="gemini-1.5-flash")
-    response = model.generate_content([prompt, img])
+        # Configure Gemini
+        genai.configure(api_key=api_key)
 
-    return response.text
+        prompt = f"""You are an expert neurologist analyzing a brain tumor MRI scan saliency map.
+        
+        Context:
+        - The deep learning model predicted: {model_prediction}
+        - Confidence level: {confidence * 100:.1f}%
+        - The light cyan regions indicate areas of model focus
+        
+        Please provide a 4-sentence analysis that:
+        1. Identifies specific brain regions highlighted in the saliency map
+        2. Explains the anatomical significance of these regions
+        3. Connects these observations to the model's prediction
+        4. Evaluates the confidence level in context of the visible features
+        
+        Focus on medical accuracy and clarity while avoiding technical ML terminology.
+        """
+
+        img = PIL.Image.open(img_path)
+        model = genai.GenerativeModel(model_name="gemini-1.5-flash")
+        response = model.generate_content([prompt, img])
+
+        return response.text
+    except Exception as e:
+        logger.error(f"Error in generate_explanation: {str(e)}")
+        raise

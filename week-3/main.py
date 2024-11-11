@@ -161,7 +161,11 @@ def setup_streamlit_page() -> None:
         page_icon="🧠",
         layout="wide",
         initial_sidebar_state="expanded",
-        menu_items={"Contact": "mailto:mike.odnis@mikeodnis.com"},
+        menu_items={
+            "Get help": "mailto:mike@mikeodnis.dev",
+            "Report a bug": "mailto:mike@mikeodnis.dev",
+            "About": "Brain Tumor Classification App"
+        }
     )
 
     st.markdown(
