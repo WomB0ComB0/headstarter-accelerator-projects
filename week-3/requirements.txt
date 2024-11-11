@@ -11,3 +11,6 @@ google-generativeai
 opencv-python
 pillow
 tensorflow
+py-cpuinfo
+tensorflow-cpu==2.10.0 
+intel-tensorflow==2.10.0 
