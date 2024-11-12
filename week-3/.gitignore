@@ -2,6 +2,7 @@ Testing
 Training
 saliency_maps/
 .idea/
+secrets.toml
 
 kaggle.json
 # Ignore system files
