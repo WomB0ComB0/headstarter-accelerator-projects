@@ -11,3 +11,4 @@ onnx>=1.15.0
 tensorflow>=2.16.1
 protobuf==3.20.3
 h5py>=3.10.0
+matplotlib>=3.8.0
