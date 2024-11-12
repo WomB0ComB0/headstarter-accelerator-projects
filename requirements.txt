@@ -12,3 +12,4 @@ tensorflow
 tensorflow[gpu]
 keras
 pillow
+h5py

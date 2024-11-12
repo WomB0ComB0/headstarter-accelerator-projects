@@ -11,7 +11,7 @@ import requests
 import logging
 from pathlib import Path
 import google.generativeai as genai
-import kagglehub
+import matplotlib.pyplot as plt
 import streamlit as st
 import onnxruntime as ort
 
@@ -28,7 +28,7 @@ class ImageProcessingConfig:
     threshold_percentile: float = 80
     heatmap_alpha: float = 0.7
     original_alpha: float = 0.3
-    target_size: Tuple[int, int] = (299, 299)
+    target_size: Tuple[int, int] = (224, 224)
 
 
 class ModelRegistry:
@@ -36,7 +36,7 @@ class ModelRegistry:
 
     MODELS = {
         "xception": {
-            "input_shape": (299, 299, 3),
+            "input_shape": (224, 224, 3),
             "weights_file": "xception_model.onnx",
         },
         "cnn": {
@@ -60,7 +60,9 @@ def setup_model_directory(base_path: str = "models") -> str:
 
 
 @lru_cache(maxsize=2)
-def load_model(model_type: str, weights_path: Optional[str] = None) -> Tuple[ort.InferenceSession, Tuple[int, int]]:
+def load_model(
+    model_type: str, weights_path: Optional[str] = None
+) -> Tuple[ort.InferenceSession, Tuple[int, int]]:
     """Load and cache the specified ONNX model"""
     try:
         model_config = ModelRegistry.get_model_config(
@@ -78,10 +80,12 @@ def load_model(model_type: str, weights_path: Optional[str] = None) -> Tuple[ort
         if not os.path.exists(weights_path):
             raise FileNotFoundError(f"Model file not found at: {weights_path}")
 
-        logger.info(f"Loading model from: {weights_path}")
-        session = ort.InferenceSession(weights_path)
+        # Load ONNX model with CPU execution provider
+        providers = ["CPUExecutionProvider"]
+        session = ort.InferenceSession(weights_path, providers=providers)
         input_shape = model_config["input_shape"][:2]
-        logger.info(f"Successfully loaded ONNX model with input shape {input_shape}")
+
+        logger.info(f"Successfully loaded model from {weights_path}")
         return session, input_shape
 
     except Exception as e:
@@ -118,11 +122,20 @@ def download_model_weights(model_type: str, base_path: str = "models") -> str:
 
 def preprocess_image(image: Image.Image, target_size: Tuple[int, int]) -> np.ndarray:
     """Preprocess image for model input"""
-    image = image.convert("RGB").resize(target_size, Image.Resampling.LANCZOS)
+    # Convert to grayscale first since MRI images are grayscale
+    image = image.convert("L")
 
+    # Resize with LANCZOS resampling
+    image = image.resize(target_size, Image.Resampling.LANCZOS)
+
+    # Convert to RGB (3 channels with same values)
+    image = image.convert("RGB")
+
+    # Normalize to [0,1] and add batch dimension
     img_array = np.array(image).astype(np.float32) / 255.0
+    img_array = np.expand_dims(img_array, axis=0)
 
-    return np.expand_dims(img_array, axis=0)
+    return img_array
 
 
 def create_heatmap(gradients: np.ndarray, config: ImageProcessingConfig) -> Image.Image:
@@ -150,17 +163,26 @@ def blend_images(
 
 
 def save_results(
-    original_img: Image.Image, heatmap: Image.Image, output_dir: str, filename: str
+    original_img: np.ndarray, heatmap: Image.Image, output_dir: str, filename: str
 ) -> Tuple[str, str]:
     """Save original image and heatmap"""
     try:
         os.makedirs(output_dir, exist_ok=True)
 
-        original_path = os.path.join(output_dir, f"original_{filename}")
-        heatmap_path = os.path.join(output_dir, f"heatmap_{filename}")
+        # Convert numpy array to PIL Image and ensure RGB mode
+        original_pil = Image.fromarray(original_img.astype("uint8")).convert("RGB")
 
-        original_img.save(original_path)
-        heatmap.save(heatmap_path)
+        # Convert heatmap to RGB if it's RGBA
+        heatmap_rgb = heatmap.convert("RGB")
+
+        # Generate paths with PNG extension to support transparency
+        base_filename = os.path.splitext(filename)[0]  # Remove original extension
+        original_path = os.path.join(output_dir, f"original_{base_filename}.png")
+        heatmap_path = os.path.join(output_dir, f"heatmap_{base_filename}.png")
+
+        # Save both images
+        original_pil.save(original_path, format="PNG")
+        heatmap_rgb.save(heatmap_path, format="PNG")
 
         logger.info(f"Saved results to {output_dir}")
         return original_path, heatmap_path
@@ -213,51 +235,65 @@ def generate_explanation(
 
 
 def generate_saliency_map(
-    model: ort.InferenceSession, 
-    img_array: np.ndarray, 
+    model: ort.InferenceSession,
+    img_array: np.ndarray,
     predicted_class: int,
-    config: ImageProcessingConfig
+    config: ImageProcessingConfig,
 ) -> Image.Image:
-    """Generate saliency map for the given image and model prediction"""
+    """Generate saliency map using batch processing"""
     try:
+        # Get input and output names
         input_name = model.get_inputs()[0].name
         output_name = model.get_outputs()[0].name
-        
-        img_tensor = img_array.copy()
-        
-        epsilon = 1e-5
-        gradients = np.zeros_like(img_tensor)
-        
-        for i in range(3):
-            for x in range(img_tensor.shape[1]):
-                for y in range(img_tensor.shape[2]):
-                    img_tensor[0, x, y, i] += epsilon
-                    output_plus = model.run(
-                        [output_name], 
-                        {input_name: img_tensor.astype(np.float32)}
-                    )[0][0][predicted_class]
-                    
-                    img_tensor[0, x, y, i] -= 2 * epsilon
-                    output_minus = model.run(
-                        [output_name], 
-                        {input_name: img_tensor.astype(np.float32)}
-                    )[0][0][predicted_class]
-                    
-                    img_tensor[0, x, y, i] += epsilon
-                    
-                    gradients[0, x, y, i] = (output_plus - output_minus) / (2 * epsilon)
-        
-        saliency = np.max(np.abs(gradients), axis=-1)[0]
-        
-        saliency = (saliency - saliency.min()) / (saliency.max() - saliency.min())
-        
-        heatmap = create_heatmap(saliency, config)
-        
+
+        # Get base prediction
+        base_prediction = model.run(
+            [output_name], {input_name: img_array.astype(np.float32)}
+        )[0][0][predicted_class]
+
+        # Calculate gradients using batch processing
+        epsilon = 1e-4
+        gradients = np.zeros_like(img_array[0])
+
+        # Process each channel in one batch
+        for channel in range(3):
+            # Create perturbed versions (plus and minus epsilon)
+            perturbed_plus = img_array.copy()
+            perturbed_plus[0, :, :, channel] += epsilon
+
+            perturbed_minus = img_array.copy()
+            perturbed_minus[0, :, :, channel] -= epsilon
+
+            # Run both perturbations in one batch
+            outputs_plus = model.run(
+                [output_name], {input_name: perturbed_plus.astype(np.float32)}
+            )[0][0][predicted_class]
+
+            outputs_minus = model.run(
+                [output_name], {input_name: perturbed_minus.astype(np.float32)}
+            )[0][0][predicted_class]
+
+            # Calculate gradient for this channel
+            gradients[:, :, channel] = (outputs_plus - outputs_minus) / (2 * epsilon)
+
+        # Calculate saliency map
+        saliency = np.max(np.abs(gradients), axis=-1)
+
+        # Normalize to [0, 1]
+        saliency = (saliency - saliency.min()) / (
+            saliency.max() - saliency.min() + 1e-8
+        )
+
+        # Convert to heatmap
+        heatmap = Image.fromarray(np.uint8(plt.cm.jet(saliency) * 255))
+
+        # Resize original image
         original_img = Image.fromarray((img_array[0] * 255).astype(np.uint8))
         original_img = original_img.resize(config.target_size, Image.Resampling.LANCZOS)
-        
-        return blend_images(original_img, heatmap, config)
-        
+
+        # Blend images
+        return Image.blend(original_img.convert("RGBA"), heatmap, 0.5)
+
     except Exception as e:
         logger.error(f"Error generating saliency map: {str(e)}")
         raise

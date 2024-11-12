@@ -35,13 +35,10 @@ class ModelConfig:
     name: str
 
     @classmethod
-    def from_type(cls, model_type: str) -> 'ModelConfig':
+    def from_type(cls, model_type: str) -> "ModelConfig":
         """Create ModelConfig based on model type"""
-        is_xception = "xception" in model_type.lower()
         return cls(
-            path=get_model_path(model_type),
-            img_size=(299, 299) if is_xception else (224, 224),
-            name=model_type
+            path=get_model_path(model_type), img_size=(224, 224), name=model_type
         )
 
 
@@ -56,13 +53,17 @@ class SystemCompatibilityCheck:
         """Check CPU compatibility"""
         try:
             import cpuinfo
+
             info = cpuinfo.get_cpu_info()
             features = info.get("flags", [])
             required_features = {"avx", "sse4_1", "sse4_2"}
             missing_features = required_features - set(features)
 
             if missing_features:
-                return False, f"CPU missing required features: {', '.join(missing_features)}"
+                return (
+                    False,
+                    f"CPU missing required features: {', '.join(missing_features)}",
+                )
             return True, None
         except Exception as e:
             self.logger.warning(f"Could not check CPU features: {str(e)}")
@@ -75,7 +76,8 @@ def initialize_app() -> None:
 
     cpu_compatible, cpu_error = checker.check_cpu_features()
     if not cpu_compatible:
-        st.error(f"""
+        st.error(
+            f"""
         System CPU Compatibility Issue Detected
         
         {cpu_error}
@@ -84,7 +86,8 @@ def initialize_app() -> None:
         1. Running on a newer CPU with AVX support
         2. Using a different hardware configuration
         3. Running with reduced model complexity
-        """)
+        """
+        )
         sys.exit(1)
 
 
@@ -98,29 +101,29 @@ def setup_environment() -> None:
         if os.path.exists(env_file):
             logger.info(f"Loading environment from {env_file}")
             load_dotenv(env_file)
-            
+
             try:
                 home_dir = os.path.expanduser("~")
                 streamlit_dir = os.path.join(home_dir, ".streamlit")
                 secrets_file = os.path.join(streamlit_dir, "secrets.toml")
-                
+
                 if not os.path.exists(streamlit_dir):
                     logger.info(f"Creating Streamlit directory at {streamlit_dir}")
                     os.makedirs(streamlit_dir, exist_ok=True)
-                
+
                 if not os.path.exists(secrets_file):
                     logger.info(f"Creating secrets file at {secrets_file}")
-                    with open(secrets_file, "w", encoding='utf-8') as f:
+                    with open(secrets_file, "w", encoding="utf-8") as f:
                         ngrok_token = os.getenv("NGROK_AUTH_TOKEN", "")
                         google_key = os.getenv("GOOGLE_API_KEY", "")
-                        
+
                         f.write(f'NGROK_AUTH_TOKEN = "{ngrok_token}"\n')
                         f.write(f'GOOGLE_API_KEY = "{google_key}"\n')
-                    
+
                     logger.info("Successfully created secrets.toml")
                 else:
                     logger.info("Secrets file already exists")
-                    
+
             except Exception as e:
                 logger.error(f"Error creating secrets file: {str(e)}")
                 pass
@@ -140,7 +143,9 @@ def get_model_path(model_type: str) -> str:
     else:
         base_path = MODELS_DIR
 
-    model_name = "xception_model.onnx" if "xception" in model_type.lower() else "cnn_model.onnx"
+    model_name = (
+        "xception_model.onnx" if "xception" in model_type.lower() else "cnn_model.onnx"
+    )
     local_path = os.path.join(base_path, model_name)
 
     if not os.path.exists(local_path):
@@ -148,6 +153,7 @@ def get_model_path(model_type: str) -> str:
             "mikeodnis/brain_tumor_cnn/tensorFlow2/default"
         )
         import shutil
+
         source_path = os.path.join(kaggle_path, model_name)
         os.makedirs(os.path.dirname(local_path), exist_ok=True)
         shutil.copy2(source_path, local_path)
@@ -159,7 +165,7 @@ def get_api_keys() -> Tuple[str, str]:
     """Get API keys from environment or Streamlit secrets"""
     ngrok_token = ""
     google_key = ""
-    
+
     try:
         if is_streamlit_cloud():
             ngrok_token = st.secrets.get("NGROK_AUTH_TOKEN", "")
@@ -169,16 +175,16 @@ def get_api_keys() -> Tuple[str, str]:
             google_key = os.getenv("GOOGLE_API_KEY", "")
     except Exception as e:
         logger.warning(f"Error getting API keys: {str(e)}")
-    
+
     if not ngrok_token or not google_key:
         logger.warning("One or more API keys are missing")
-    
+
     return ngrok_token, google_key
 
 
 def is_streamlit_cloud() -> bool:
     """Check if running on Streamlit Cloud"""
-    return os.getenv('STREAMLIT_RUNTIME_ENVIRONMENT') is not None
+    return os.getenv("STREAMLIT_RUNTIME_ENVIRONMENT") is not None
 
 
 def setup_streamlit_page() -> None:
@@ -291,15 +297,20 @@ def main() -> None:
                 try:
                     model, input_shape = utils.load_model(
                         model_type,
-                        weights_path=os.path.join(MODELS_DIR, 
-                            "xception_model.onnx" if "xception" in model_type.lower() else "cnn_model.onnx"
-                        )
+                        weights_path=os.path.join(
+                            MODELS_DIR,
+                            (
+                                "xception_model.onnx"
+                                if "xception" in model_type.lower()
+                                else "cnn_model.onnx"
+                            ),
+                        ),
                     )
 
                     model_config = ModelConfig(
                         path=get_model_path(model_type),
                         img_size=input_shape,
-                        name=model_type
+                        name=model_type,
                     )
 
                     img = PIL.Image.open(upload_file)
@@ -308,10 +319,9 @@ def main() -> None:
                     with st.spinner("Analyzing image..."):
                         input_name = model.get_inputs()[0].name
                         output_name = model.get_outputs()[0].name
-                        
+
                         predictions = model.run(
-                            [output_name], 
-                            {input_name: img_array.astype(np.float32)}
+                            [output_name], {input_name: img_array.astype(np.float32)}
                         )[0]
                         predicted_class = np.argmax(predictions[0])
                         predicted_label = LABELS[predicted_class]

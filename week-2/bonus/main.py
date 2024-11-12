@@ -151,7 +151,9 @@ def create_transaction_summary(input_data: Dict[str, Any]) -> None:
             )
 
 
-def make_predictions(input_data: pd.DataFrame, models: Dict[str, BaseEstimator]) -> Dict[str, Dict[str, Any]]:
+def make_predictions(
+    input_data: pd.DataFrame, models: Dict[str, BaseEstimator]
+) -> Dict[str, Dict[str, Any]]:
     """Make predictions with ensemble voting and confidence scores."""
     results = {}
     weights = {
@@ -159,10 +161,10 @@ def make_predictions(input_data: pd.DataFrame, models: Dict[str, BaseEstimator])
         "xgb_model": 0.3,
         "dt_model": 0.3,
     }
-    
+
     # Preprocess input data
     processed_data = utils.prepare_features(input_data)
-    
+
     ensemble_proba = 0
     total_weight = 0
 
