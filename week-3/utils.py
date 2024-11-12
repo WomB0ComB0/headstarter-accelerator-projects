@@ -14,6 +14,7 @@ import logging
 from pathlib import Path
 import google.generativeai as genai
 import kagglehub
+import streamlit as st
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
