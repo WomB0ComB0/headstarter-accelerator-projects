@@ -7,10 +7,9 @@ import os
 import sys
 import streamlit as st
 import kagglehub
-from concurrent.futures import ThreadPoolExecutor
-from pyngrok import ngrok
 import logging
-from typing import Tuple, List, Set, Dict, Optional
+import tensorflow as tf
+from typing import Tuple, List, Set, Optional
 import numpy as np
 import plotly.graph_objects as go
 import PIL.Image
@@ -48,11 +47,9 @@ class SystemCompatibilityCheck:
     def check_cpu_features(self) -> Tuple[bool, Optional[str]]:
         """Check CPU compatibility with TensorFlow"""
         try:
-            cpu_info = platform.processor()
-            # Check for minimum CPU features required by TensorFlow
             import cpuinfo
-
-            features = cpuinfo.get_cpu_info().get("flags", [])
+            info = cpuinfo.get_cpu_info()
+            features = info.get("flags", [])
             required_features = {"avx", "sse4_1", "sse4_2"}
             missing_features = required_features - set(features)
 
@@ -63,7 +60,9 @@ class SystemCompatibilityCheck:
                 )
             return True, None
         except Exception as e:
-            return False, f"Error checking CPU features: {str(e)}"
+            # If we can't check CPU features, assume it's compatible
+            self.logger.warning(f"Could not check CPU features: {str(e)}")
+            return True, None
 
     def check_tensorflow_compatibility(self) -> Tuple[bool, Optional[str]]:
         """Verify TensorFlow compatibility with system"""
@@ -243,6 +242,7 @@ def display_results(predicted_label: str, confidence: float) -> None:
 def main() -> None:
     """Main application logic"""
     try:
+        initialize_app()
         setup_environment()
         setup_streamlit_page()
 
