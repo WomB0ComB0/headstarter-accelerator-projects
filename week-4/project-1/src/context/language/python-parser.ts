@@ -1,6 +1,21 @@
 import Parser = require("web-tree-sitter");
 
 /**
+ * Interface defining required parser behavior
+ * @interface AbstractParser
+ * @
+ */
+interface AbstractParser {
+  findEnclosingContext(
+    file: string,
+    lineStart: number,
+    lineEnd: number
+  ): Promise<EnclosingContext>;
+  dryRun(file: string): Promise<ParserResult>;
+}
+
+
+/**
  * Represents the context that encloses a section of code
  */
 interface EnclosingContext {
@@ -35,7 +50,7 @@ interface ParserResult {
 /**
  * Parser for Python source code using tree-sitter
  */
-export class PythonParser {
+export class PythonParser implements AbstractParser {
   /** The underlying tree-sitter Parser instance */
   private parser: Parser | null = null;
   /** Whether the parser has been initialized */
