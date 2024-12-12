@@ -8,7 +8,6 @@ const redis = new Redis({
   token: process.env.UPSTASH_REDIS_REST_TOKEN || (() => { throw new Error("UPSTASH_REDIS_REST_TOKEN is not set") })()
 });
 
-  
 const ratelimit = new Ratelimit({
   redis,
   limiter: Ratelimit.slidingWindow(10, "60s"),

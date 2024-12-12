@@ -1,7 +1,7 @@
 import { Groq } from "groq-sdk";
 import * as cheerio from 'cheerio';
 import { z } from 'zod'
-import { ChatCompletionMessageParam } from "groq-sdk/resources/chat/completions.mjs";
+import type { ChatCompletionMessageParam } from "groq-sdk/resources/chat/completions.mjs";
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY || (() =>  {throw new Error('GROQ_API_KEY is not set')})()
@@ -37,13 +37,11 @@ function extractSemanticContent($: cheerio.CheerioAPI): string {
 
   let extractedText = '';
   
-  // First extract meta information
   const title = $('title').text();
   const description = $('meta[name="description"]').attr('content');
   if (title) extractedText += `Title: ${title}\n\n`;
   if (description) extractedText += `Description: ${description}\n\n`;
 
-  // Then extract content from semantic elements
   semanticSelectors.forEach(selector => {
     const elements = $(selector);
     
@@ -122,9 +120,7 @@ export async function POST(req: Request) {
       ? specificExtractor($) 
       : extractSemanticContent($);
 
-    console.log(pageContent);
-
-    const MAX_CONTENT_LENGTH = 8000;
+    const MAX_CONTENT_LENGTH = 8_000;
     pageContent = pageContent.slice(0, MAX_CONTENT_LENGTH);
 
     const systemMessage = `You are a helpful AI assistant. Use the following webpage content to answer questions precisely and concisely:
