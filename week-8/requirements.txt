@@ -1,0 +1,4 @@
+numpy>=1.26.0
+Flask
+Flask-Cors
+python-dotenv

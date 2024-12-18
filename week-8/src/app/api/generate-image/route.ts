@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
   try {
@@ -14,8 +14,12 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     return NextResponse.json(
-      { success: false, error: "Failed to process request" },
-      { status: 500 }
+      {
+        success: false,
+        error: `${error instanceof Error ? error.message : error}
+      `,
+      },
+      { status: 500 },
     );
   }
 }

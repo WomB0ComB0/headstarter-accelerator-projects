@@ -2,28 +2,102 @@
   "name": "pentagram",
   "version": "0.1.0",
   "private": true,
+    "keywords": [
+    "nextjs",
+    "typescript",
+    "react",
+    "bun",
+    "tailwindcss",
+    "tailwind-merge",
+    "tailwindcss-animate",
+    "postcss",
+    "autoprefixer",
+    "lucide-react",
+    "react-icons",
+    "next-themes",
+    "react-slot",
+    "clsx",
+    "zod",
+    "biome",
+    "react-compiler",
+    "real-time",
+    "serverless",
+    "server-components",
+    "server-side-rendering",
+    "api-routes",
+    "type-safety",
+    "responsive-design",
+    "accessibility",
+    "internationalization",
+    "performance-optimization",
+    "security",
+    "upstash",
+    "ratelimit"
+  ],
+  "homepage": "https://github.com/WomB0ComB0/headstarter-accelerator-projects/week-8#readme",
+  "bugs": {
+    "url": "https://github.com/WomB0ComB0/headstarter-accelerator-projects/week-8/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/WomB0ComB0/headstarter-accelerator-projects/week-8.git"
+  },
+  "type": "module",
+  "files": [
+    "CHANGELOG.md",
+    "LICENSE",
+    "README.md"
+  ],
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev:api": "FLASK_DEBUG=1 pip3 install -r requirements.txt && python3 -m flask --app api/index run -p 5328",
+    "dev:next": "next dev --turbopack",
+    "dev": "concurrently \"bun run dev:api\" \"bun run dev:next\"",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "format:fix": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\""
+    "lint": " bunx biome check --write ./src"
+  },
+  "browserslist": {
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ],
+    "production": [
+      "defaults",
+      "not dead",
+      "not IE 11",
+      "not IE_Mob 11",
+      "maintained node versions"
+    ]
   },
   "dependencies": {
-    "next": "15.1.0",
-    "prettier": "^3.4.2",
+    "@biomejs/biome": "1.9.4",
+    "@hookform/resolvers": "^3.9.1",
+    "@radix-ui/react-avatar": "^1.1.2",
+    "@radix-ui/react-label": "^2.1.1",
+    "@radix-ui/react-slot": "^1.1.1",
+    "@radix-ui/react-toast": "^1.2.4",
+    "@upstash/ratelimit": "^2.0.5",
+    "@upstash/redis": "^1.34.3",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "concurrently": "^9.1.0",
+    "lucide-react": "^0.468.0",
+    "next": "15.1.1",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "react-hook-form": "^7.54.1",
+    "tailwind-merge": "^2.5.5",
+    "tailwindcss-animate": "^1.0.7",
+    "zod": "^3.24.1"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "15.1.0",
-    "postcss": "^8",
-    "tailwindcss": "^3.4.1",
-    "typescript": "^5"
-  }
+    "@types/node": "22.10.2",
+    "@types/react": "19.0.2",
+    "@types/react-dom": "19.0.2",
+    "postcss": "8.4.49",
+    "tailwindcss": "3.4.17",
+    "typescript": "5.7.2"
+  },
+  "packageManager": "bun@1.1.40"
 }

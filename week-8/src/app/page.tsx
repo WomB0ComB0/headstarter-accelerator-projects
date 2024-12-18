@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { useState } from "react";
+import { useState } from 'react';
 
 export default function Home() {
-  const [inputText, setInputText] = useState("");
+  const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -11,19 +11,19 @@ export default function Home() {
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/generate-image", {
-        method: "POST",
+      const response = await fetch('/api/generate-image', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({ text: inputText }),
       });
 
       const data = await response.json();
       console.log(data);
-      setInputText("");
+      setInputText('');
     } catch (error) {
-      console.error("Error:", error);
+      console.error('Error:', error);
     } finally {
       setIsLoading(false);
     }
@@ -31,7 +31,7 @@ export default function Home() {
 
   return (
     // TODO: Update the UI here to show the images generated
-    
+
     <div className="min-h-screen flex flex-col justify-between p-8">
       <main className="flex-1">{/* Main content can go here */}</main>
 
@@ -41,7 +41,7 @@ export default function Home() {
             <input
               type="text"
               value={inputText}
-              onChange={e => setInputText(e.target.value)}
+              onChange={(e) => setInputText(e.target.value)}
               className="flex-1 p-3 rounded-lg bg-black/[.05] dark:bg-white/[.06] border border-black/[.08] dark:border-white/[.145] focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white"
               placeholder="Describe the image you want to generate..."
               disabled={isLoading}
@@ -51,7 +51,7 @@ export default function Home() {
               disabled={isLoading}
               className="px-6 py-3 rounded-lg bg-foreground text-background hover:bg-[#383838] dark:hover:bg-[#ccc] transition-colors disabled:opacity-50"
             >
-              {isLoading ? "Generating..." : "Generate"}
+              {isLoading ? 'Generating...' : 'Generate'}
             </button>
           </div>
         </form>
