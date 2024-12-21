@@ -62,9 +62,9 @@ from fastapi import APIRouter, BackgroundTasks, Header
 from pydantic import BaseModel
 import modal
 import asyncio
-from ..utils.rate_limit import rate_limit
-from ..utils.recommendations import RecommendationSystem
-from ..utils.safety import ContentSafety
+from backend.utils.rate_limit import rate_limit
+from backend.utils.recommendations import RecommendationSystem
+from backend.utils.safety import ContentSafety
 
 router: APIRouter = APIRouter()
 

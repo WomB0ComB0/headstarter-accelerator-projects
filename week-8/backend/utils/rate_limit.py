@@ -108,7 +108,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from fastapi.middleware import Middleware
 from upstash_redis import Redis
-from ..config.config import config
+from backend.config.config import config
 
 
 class RateLimiter:

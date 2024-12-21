@@ -86,9 +86,9 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import logging
-from .routers.generate_image import router as create_image
-from .routers.recommendations import router as get_recommendations
-from .config.config import config
+from backend.routers.generate_image import router as create_image
+from backend.routers.recommendations import router as get_recommendations
+from backend.config.config import config
 from typing import Dict
 
 logging.basicConfig(

@@ -51,8 +51,8 @@ Example Usage:
 """
 
 from fastapi import APIRouter, HTTPException, Header
-from ..utils.rate_limit import rate_limit
-from ..utils.recommendations import RecommendationSystem
+from backend.utils.rate_limit import rate_limit
+from backend.utils.recommendations import RecommendationSystem
 
 router = APIRouter()
 
