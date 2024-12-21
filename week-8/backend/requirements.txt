@@ -1,0 +1,10 @@
+numpy
+python-dotenv
+Werkzeug
+pydantic
+upstash-redis
+sentence-transformers
+transformers
+fastapi
+modal
+diffusers

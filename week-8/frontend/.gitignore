@@ -10,30 +10,55 @@
 !.yarn/releases
 !.yarn/versions
 
+# virtual environments
 /env
+/venv
 
-# testing
+# testing and training
 /coverage
+Testing
+Training
+__pycache__/
+*.pyc
+*.pyo
 
 # next.js
 /.next/
 /out/
 
-# production
+# production and build artifacts
 /build
+dist/
+*.egg-info/
 
-# misc
+# data and model files
+data/
+saliency_maps/
+kaggle.json
+
+# IDE and editor files
+.idea/
+*.iml
+*.idea/workspace.xml
+*.idea/misc.xml
+*.swp
+*~
+
+# system files
 .DS_Store
+Thumbs.db
 *.pem
 
-# debug
+# debug logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# environment files
 .env
+.env.local
+secrets.toml
 
 # vercel
 .vercel

@@ -1,0 +1,41 @@
+Testing
+Training
+saliency_maps/
+.idea/
+secrets.toml
+
+kaggle.json
+# Ignore system files
+.DS_Store
+Thumbs.db
+
+# Ignore virtual environment
+/env
+/venv
+
+# Ignore local environment files
+.env
+.env.local
+
+# Ignore build artifacts
+dist/
+build/
+*.egg-info/
+
+# Ignore testing files
+__pycache__/
+*.pyc
+*.pyo
+
+# Ignore data files (if you're not using a data repository)
+data/
+
+# Ignore IDE-specific files
+.idea/
+*.iml
+*.idea/workspace.xml
+*.idea/misc.xml
+
+# Ignore editor backup files
+*.swp
+*~
