@@ -80,6 +80,7 @@ class ImageRequest(BaseModel):
     Attributes:
         text (str): The prompt text to generate an image from
     """
+
     text: str
 
 
@@ -91,6 +92,7 @@ class ImageResponse(BaseModel):
         image (bytes | None): The generated image bytes if successful
         error (str | None): Error message if generation failed
     """
+
     success: bool
     image: bytes | None = None
     error: str | None = None
@@ -102,7 +104,7 @@ class ImageResponse(BaseModel):
     image=modal.Image.debian_slim().pip_install(
         "diffusers", "torch", "transformers", "redis"
     ),
-    secret=modal.Secret.from_name("redis-secret"),
+    secret=modal.Secret.from_name("custom-secret"),
 )
 async def generate_image(prompt: str) -> bytes:
     """Generate an image from a text prompt using Stable Diffusion.

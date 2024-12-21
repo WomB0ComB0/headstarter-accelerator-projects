@@ -1,6 +1,7 @@
 #! /usr/bin/env python3
 # app/config.py
 # -*- coding: utf-8 -*-
+
 """Configuration module for the Image Generation API.
 
 This module provides configuration management through Pydantic models and environment variables.
@@ -37,31 +38,34 @@ basedir = os.path.abspath(os.path.dirname(__file__))
 
 class EnvironmentType(str, Enum):
     """Enum defining possible environment types for the application."""
+
     DEVELOPMENT = "development"
-    PRODUCTION = "production" 
+    PRODUCTION = "production"
     TESTING = "testing"
 
 
 class RedisConfig(BaseModel):
     """Configuration model for Redis connection settings.
-    
+
     Attributes:
         url (str): Redis server URL
         token (str): Authentication token for Redis
     """
+
     url: str
     token: str
 
 
 class ModalConfig(BaseModel):
     """Configuration model for Modal compute settings.
-    
+
     Attributes:
         webhook_url (str): Webhook URL for Modal notifications
         api_key (str): Modal API authentication key
         timeout (int): Request timeout in seconds
         gpu_type (str): GPU type to use (A100, H100, or T4)
     """
+
     webhook_url: str
     api_key: str
     timeout: int
@@ -70,12 +74,13 @@ class ModalConfig(BaseModel):
 
 class DatabaseConfig(BaseModel):
     """Configuration model for database connection settings.
-    
+
     Attributes:
         url (str): Database connection URL
         pool_size (int): Size of the connection pool
         max_overflow (int): Maximum number of connections that can be created beyond pool_size
     """
+
     url: str
     pool_size: int
     max_overflow: int
@@ -83,7 +88,7 @@ class DatabaseConfig(BaseModel):
 
 class Settings(BaseModel):
     """Main settings model containing all configuration options.
-    
+
     Attributes:
         ENV (EnvironmentType): Current environment type
         DEBUG (bool): Debug mode flag
@@ -98,6 +103,7 @@ class Settings(BaseModel):
         MODEL_ID (str): ID of the ML model to use
         MAX_TOKENS (int): Maximum tokens for text processing
     """
+
     ENV: EnvironmentType = Field(
         default=EnvironmentType.DEVELOPMENT, description="Current environment"
     )
@@ -108,15 +114,15 @@ class Settings(BaseModel):
 
     REDIS: RedisConfig = Field(
         default={
-            "url": os.getenv("UPSTASH_REDIS_REST_URL"),
-            "token": os.getenv("UPSTASH_REDIS_REST_TOKEN"),
+            "url": os.environ["UPSTASH_REDIS_REST_URL"],
+            "token": os.environ["UPSTASH_REDIS_REST_TOKEN"],
         }
     )
 
     MODAL: ModalConfig = Field(
         default={
-            "webhook_url": os.getenv("MODAL_WEBHOOK_URL"),
-            "api_key": os.getenv("MODAL_API_KEY"),
+            "webhook_url": os.environ["MODAL_WEBHOOK_URL"],
+            "api_key": os.environ["MODAL_API_KEY"],
             "timeout": 30,
             "gpu_type": "A100",
         }
@@ -130,8 +136,8 @@ class Settings(BaseModel):
         }
     )
 
-    SECRET_KEY: str = Field(default=os.getenv("SECRET_KEY"))
-    API_KEY: str = Field(default=os.getenv("API_KEY"))
+    SECRET_KEY: str = Field(default=os.environ["SECRET_KEY"])
+    API_KEY: str = Field(default=os.environ["API_KEY"])
     ALLOWED_HOSTS: list[str] = Field(default=["localhost", "127.0.0.1"])
 
     MODEL_ID: str = Field(default="runwayml/stable-diffusion-v1-5")
@@ -139,6 +145,7 @@ class Settings(BaseModel):
 
     class Config:
         """Pydantic configuration class."""
+
         env_file = os.path.join(basedir, ".env")
         env_file_encoding = "utf-8"
         case_sensitive = True
@@ -146,14 +153,15 @@ class Settings(BaseModel):
 
 class AppConfig:
     """Singleton configuration class for application-wide settings.
-    
+
     This class implements the singleton pattern to ensure only one instance
     of the configuration is created and used throughout the application.
-    
+
     Attributes:
         _instance: Singleton instance
         _settings: Settings instance
     """
+
     _instance = None
     _settings: Optional[Settings] = None
 
@@ -167,7 +175,7 @@ class AppConfig:
     @property
     def settings(self) -> Settings:
         """Get the settings instance.
-        
+
         Returns:
             Settings: The application settings
         """
@@ -178,7 +186,7 @@ class AppConfig:
     @property
     def redis(self) -> RedisConfig:
         """Get Redis configuration.
-        
+
         Returns:
             RedisConfig: Redis configuration settings
         """
@@ -187,7 +195,7 @@ class AppConfig:
     @property
     def modal(self) -> ModalConfig:
         """Get Modal configuration.
-        
+
         Returns:
             ModalConfig: Modal configuration settings
         """
@@ -196,7 +204,7 @@ class AppConfig:
     @property
     def database(self) -> DatabaseConfig:
         """Get database configuration.
-        
+
         Returns:
             DatabaseConfig: Database configuration settings
         """
@@ -204,7 +212,7 @@ class AppConfig:
 
     def is_development(self) -> bool:
         """Check if running in development environment.
-        
+
         Returns:
             bool: True if in development environment
         """
@@ -212,7 +220,7 @@ class AppConfig:
 
     def is_production(self) -> bool:
         """Check if running in production environment.
-        
+
         Returns:
             bool: True if in production environment
         """
