@@ -8,3 +8,4 @@ transformers
 fastapi
 modal
 diffusers
+uvicorn

@@ -1,31 +1,104 @@
 #! /usr/bin/env python3
-# app/rate_limit.py
+# app/utils/rate_limit.py
 # -*- coding: utf-8 -*-
 
-"""
-Rate limiting module for FastAPI applications.
+"""Rate limiting module for FastAPI applications.
 
 This module provides rate limiting functionality using Redis as a backend store.
-It includes:
+It implements a sliding window rate limiting algorithm to control request rates
+on both a global and per-endpoint basis.
 
-- RateLimiter class for checking rate limits
-- RateLimitMiddleware for global rate limiting
-- rate_limit decorator for per-endpoint rate limiting
+Key Features:
+    - Redis-backed sliding window rate limiting
+    - Global rate limiting via middleware
+    - Per-endpoint rate limiting via decorator
+    - Configurable limits and time windows
+    - Rate limit headers in responses
+    - Client identification via IP or auth token
+    - Pipeline operations for atomic updates
+    - Automatic cleanup of expired entries
 
-Rate limits are enforced using a sliding window algorithm with Redis sorted sets.
-Each client is identified by either their IP address or auth token.
+Components:
+    RateLimiter:
+        Core rate limiting implementation using Redis sorted sets
+        - Sliding window algorithm
+        - Atomic operations with pipelining
+        - Configurable limits and windows
+        - Automatic cleanup of old entries
 
-Example usage:
+    RateLimitMiddleware:
+        FastAPI middleware for global rate limiting
+        - Applies to all routes
+        - Adds rate limit headers
+        - Returns 429 status on limit exceeded
+        - Configurable limits per middleware instance
 
-    # Global rate limiting
-    app = FastAPI()
-    app.add_middleware(RateLimitMiddleware, limit=100, window=60)
+    rate_limit:
+        Decorator for per-endpoint rate limiting
+        - Individual route protection
+        - Customizable limits per endpoint
+        - Raises HTTPException on limit exceeded
+        - Returns rate limit info to route
 
-    # Per-endpoint rate limiting
-    @app.get("/endpoint")
-    @rate_limit(limit=10, window=60)
-    async def endpoint():
-        return {"message": "Rate limited endpoint"}
+Usage Examples:
+    Global Rate Limiting:
+        ```python
+        app = FastAPI()
+        app.add_middleware(
+            RateLimitMiddleware,
+            limit=100,  # requests
+            window=60   # seconds
+        )
+        ```
+
+    Per-Endpoint Rate Limiting:
+        ```python
+        @app.get("/api/resource")
+        @rate_limit(limit=10, window=60)
+        async def get_resource():
+            return {"data": "rate limited resource"}
+        ```
+
+    Custom Redis Client:
+        ```python
+        redis_client = Redis(url="redis://...", token="...")
+        limiter = RateLimiter(redis_client=redis_client)
+        ```
+
+Rate Limit Headers:
+    All responses include rate limit information:
+    - X-RateLimit-Limit: Max requests per window
+    - X-RateLimit-Remaining: Requests remaining
+    - X-RateLimit-Reset: Window reset timestamp
+
+Client Identification:
+    Clients are identified by either:
+    - IP address (request.client.host)
+    - Authorization header token if present
+
+Dependencies:
+    - FastAPI for web framework integration
+    - Redis for rate limit storage
+    - upstash_redis for Redis client
+    - time for timestamps
+
+Configuration:
+    Redis connection settings are loaded from config:
+    - url: Redis server URL
+    - token: Authentication token
+
+Error Handling:
+    Rate limit exceeded:
+    - Status: 429 Too Many Requests
+    - Response includes:
+        - error: "Rate limit exceeded"
+        - retry_after: Seconds until reset
+
+Performance Considerations:
+    - Uses Redis sorted sets for efficient sliding windows
+    - Pipeline operations for atomic updates
+    - Automatic cleanup of expired entries
+    - Minimal memory footprint per client
 """
 
 from fastapi import Request, Response, HTTPException, Depends
@@ -35,7 +108,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from fastapi.middleware import Middleware
 from upstash_redis import Redis
-from .config import config
+from ..config.config import config
 
 
 class RateLimiter:
@@ -56,12 +129,12 @@ class RateLimiter:
             redis_client: Optional Redis client instance. If not provided,
                          creates new client using config settings.
         """
-        self.redis = redis_client or Redis(
+        self.redis: Redis = redis_client or Redis(
             url=config.redis["url"],
             token=config.redis["token"],
         )
-        self.default_limit = 100
-        self.default_window = 60  # seconds
+        self.default_limit: int = 100
+        self.default_window: int = 60  # seconds
 
     async def is_rate_limited(
         self, client_id: str, limit: int = None, window: int = None
@@ -82,8 +155,8 @@ class RateLimiter:
                 - bool: True if rate limited, False otherwise
                 - dict: Rate limit information including limit, remaining requests, and reset time
         """
-        limit = limit or self.default_limit
-        window = window or self.default_window
+        limit: int = limit or self.default_limit
+        window: int = window or self.default_window
 
         # Create Redis key for this client
         key = f"rate_limit:{client_id}"
@@ -135,9 +208,9 @@ class RateLimitMiddleware(Middleware):
             redis_client: Optional Redis client instance
         """
         super().__init__(app)
-        self.limiter = RateLimiter(redis_client)
-        self.limit = limit
-        self.window = window
+        self.limiter: RateLimiter = RateLimiter(redis_client)
+        self.limit: int = limit
+        self.window: int = window
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """
@@ -154,16 +227,17 @@ class RateLimitMiddleware(Middleware):
             429 status code if rate limit exceeded
         """
         # Get client identifier (IP or auth token)
-        client_id = request.client.host
+        client_id: str = request.client.host
 
         # Check for auth token
-        auth_token = request.headers.get("Authorization")
+        auth_token: str = request.headers.get("Authorization")
         if auth_token:
             client_id = auth_token
 
-        is_limited, rate_limit_info = await self.limiter.is_rate_limited(
-            client_id, self.limit, self.window
-        )
+        (
+            is_limited,
+            rate_limit_info,
+        ) = await self.limiter.is_rate_limited(client_id, self.limit, self.window)
 
         # Add rate limit headers
         headers = {
@@ -182,7 +256,7 @@ class RateLimitMiddleware(Middleware):
                 headers=headers,
             )
 
-        response = await call_next(request)
+        response: Response = await call_next(request)
 
         # Add rate limit headers to response
         for key, value in headers.items():
@@ -214,14 +288,15 @@ def rate_limit(limit: int = None, window: int = None) -> Callable:
     async def rate_limit_dep(
         request: Request, limiter: RateLimiter = Depends(RateLimiter)
     ):
-        client_id = request.client.host
-        auth_token = request.headers.get("Authorization")
+        client_id: str = request.client.host
+        auth_token: str = request.headers.get("Authorization")
         if auth_token:
             client_id = auth_token
 
-        is_limited, rate_limit_info = await limiter.is_rate_limited(
-            client_id, limit, window
-        )
+        (
+            is_limited,
+            rate_limit_info,
+        ) = await limiter.is_rate_limited(client_id, limit, window)
 
         if is_limited:
             raise HTTPException(
