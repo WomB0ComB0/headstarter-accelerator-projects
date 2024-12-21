@@ -44,6 +44,7 @@ import os
 import io
 from .safety import ContentSafety
 from .recommendations import RecommendationSystem
+from .rate_limit import rate_limit
 import logging
 
 logging.basicConfig(
@@ -166,6 +167,7 @@ async def generate_image(prompt: str) -> bytes:
 
 
 @app.post("/api/generate-image", response_model=ImageResponse)
+@rate_limit(limit=10, window=60)
 async def create_image(
     request: ImageRequest,
     background_tasks: BackgroundTasks,
@@ -206,6 +208,7 @@ async def create_image(
 
 
 @app.get("/api/recommendations")
+@rate_limit(limit=10, window=60)
 async def get_recommendations(user_id: str = Header(None)):
     """Get personalized prompt recommendations for a user.
 
