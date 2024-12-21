@@ -5,7 +5,9 @@ pydantic
 upstash-redis
 sentence-transformers
 transformers
-fastapi
+fastapi[standard]
 modal
+torch
 diffusers
 uvicorn
+accelerate>=0.25.0

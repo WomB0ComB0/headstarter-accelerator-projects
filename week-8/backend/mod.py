@@ -1,19 +1,108 @@
+#! /usr/bin/env python3
+"""
+Image Generation Service with Content Safety and Recommendations
+
+This module provides a Modal-based service for AI image generation using Stable Diffusion,
+with content safety checks and personalized recommendations.
+
+Key Features:
+- Image generation using Stable Diffusion v1.5
+- Content safety filtering for inappropriate content and hate speech
+- User-based recommendation system using embeddings
+- Request rate limiting and caching
+- Health monitoring
+
+The service is built using Modal for serverless deployment and uses:
+- Stable Diffusion for image generation
+- RoBERTa for content safety checks
+- Sentence Transformers for recommendation embeddings
+- Upstash Redis for caching and storing user interactions
+- FastAPI for API endpoints
+
+Environment Variables Required:
+- UPSTASH_REDIS_REST_URL: URL for Upstash Redis instance
+- UPSTASH_REDIS_REST_TOKEN: Authentication token for Upstash Redis
+- API_KEY: API key for service authentication
+
+Example Usage:
+    # Generate an image
+    POST /generate
+    {
+        "prompt": "a beautiful sunset over mountains",
+        "user_id": "user123"
+    }
+
+    # Get recommendations
+    GET /recommendations?user_id=user123
+
+    # Check health
+    GET /health
+
+Author: [Your Name]
+Version: 1.0.0
+"""
+
 import modal
 import asyncio
-from pydantic import BaseModel
+import pydantic
 import os
-import io
-from typing import List, Tuple, Dict, Any
+import typing
 import numpy as np
-from upstash_redis import Redis
+import upstash_redis
 import json
-from sentence_transformers import SentenceTransformer
-from transformers import pipeline
+import sentence_transformers
+import transformers
 import re
+import dotenv
+import collections
+import base64
+import requests
+import datetime
 
+dotenv.load_dotenv(dotenv.find_dotenv())
 
-# Initialize Modal stub for serverless GPU compute
-stub: modal.Stub = modal.Stub("image-generation")
+book: collections.defaultdict[str, str] = collections.defaultdict(str)
+try:
+    with open("requirements.txt", "r", encoding="utf-8") as file:
+        for line in file:
+            book[line.strip()] = line.strip()
+except (FileNotFoundError, IOError, FileExistsError) as e:
+    print(f"Error loading requirements: {e}")
+
+app = modal.App("image-generation")
+
+image = (
+    modal.Image.debian_slim(python_version="3.12")
+    .apt_install(
+        [
+            "git",
+            "wget",
+            "libgl1-mesa-glx",  # Required for OpenCV/image processing
+            "libglib2.0-0",
+            "build-essential",  # For compiling some Python packages
+        ]
+    )
+    .pip_install([val for val in book.values()])
+    .env(
+        {
+            "TORCH_CUDA_ARCH_LIST": "7.5",  # Optimize for A100 GPUs
+            "PYTHONUNBUFFERED": "1",
+        }
+    )
+    .add_local_file(
+        local_path="requirements.txt",
+        remote_path="/app/requirements.txt",
+        copy=True,
+    )
+    .workdir("/app")
+)
+
+with image.imports():
+    import diffusers
+    import torch
+    from fastapi import Response, HTTPException
+
+# Rate limiting configuration
 MAX_CONCURRENT_REQUESTS: int = 10
 request_semaphore: asyncio.Semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
 
@@ -43,12 +132,12 @@ class ContentSafety:
         Loads the hate speech classification model using the Hugging Face
         transformers pipeline.
         """
-        self.toxic_classifier: pipeline = pipeline(
+        self.toxic_classifier: transformers.pipeline = transformers.pipeline(
             "text-classification",
             model="facebook/roberta-hate-speech-dynabench-r4-target",
         )
 
-    def is_safe_prompt(self, text: str) -> Tuple[bool, str]:
+    def is_safe_prompt(self, text: str) -> typing.Tuple[bool, str]:
         """Check if the provided text prompt is safe for image generation.
 
         Performs two safety checks:
@@ -77,7 +166,7 @@ class ContentSafety:
             return False, "Explicit content not allowed"
 
         # Check for hate speech
-        result: Dict[str, Any] = self.toxic_classifier(text)[0]
+        result: typing.Dict[str, typing.Any] = self.toxic_classifier(text)[0]
         if result["label"] == "hate" and result["score"] > 0.7:
             return False, "Hate speech detected"
 
@@ -85,17 +174,49 @@ class ContentSafety:
 
 
 class RecommendationSystem:
+    """Personalized recommendation system for image generation prompts.
+
+    Uses sentence embeddings to create user profiles based on their prompt history
+    and recommends similar prompts from a global pool.
+
+    Attributes:
+        model: SentenceTransformer model for generating text embeddings
+        redis_client: Upstash Redis client for storing user history and global prompts
+
+    Example:
+        recommender = RecommendationSystem()
+        recommender.store_user_interaction("user123", "mountain sunset")
+        recommendations = recommender.get_recommendations("user123", n=5)
+    """
+
     def __init__(self) -> None:
-        self.model: SentenceTransformer = SentenceTransformer("all-MiniLM-L6-v2")
-        self.redis_client: Redis = Redis(
-            url=os.environ["REDIS_URL"],
-            token=os.environ["REDIS_TOKEN"],
+        """Initialize the recommendation system with embedding model and Redis connection."""
+        self.model: sentence_transformers.SentenceTransformer = (
+            sentence_transformers.SentenceTransformer("all-MiniLM-L6-v2")
+        )
+        self.redis_client: upstash_redis.Redis = upstash_redis.Redis(
+            url=os.getenv("UPSTASH_REDIS_REST_URL"),
+            token=os.getenv("UPSTASH_REDIS_REST_TOKEN"),
         )
 
     def get_embedding(self, text: str) -> np.ndarray:
+        """Generate embedding vector for a text prompt.
+
+        Args:
+            text: Input text to embed
+
+        Returns:
+            Numpy array containing the embedding vector
+        """
         return self.model.encode([text])[0]
 
     def store_user_interaction(self, user_id: str, prompt: str) -> None:
+        """Store a user's prompt interaction in Redis.
+
+        Args:
+            user_id: Unique identifier for the user
+            prompt: The text prompt used by the user
+        """
         embedding: np.ndarray = self.get_embedding(prompt)
         user_history: str = f"user_history:{user_id}"
         self.redis_client.lpush(
@@ -103,39 +224,45 @@ class RecommendationSystem:
             json.dumps({"prompt": prompt, "embedding": embedding.tolist()}),
         )
 
-    def get_recommendations(self, user_id: str, n: int = 5) -> List[str]:
+    def get_recommendations(self, user_id: str, n: int = 5) -> typing.List[str]:
+        """Get personalized prompt recommendations for a user.
+
+        Args:
+            user_id: Unique identifier for the user
+            n: Number of recommendations to return
+
+        Returns:
+            List of recommended prompt strings
+        """
         # Get user's recent prompts
         user_history: str = f"user_history:{user_id}"
-        recent_prompts: List[str] = self.redis_client.lrange(user_history, 0, 9)
+        recent_prompts: typing.List[str] = self.redis_client.lrange(user_history, 0, 9)
 
         if not recent_prompts:
             return []
 
         # Calculate average embedding of recent prompts
-        embeddings: List[np.ndarray] = []
+        embeddings: typing.List[np.ndarray] = []
         for prompt_data in recent_prompts:
-            data: dict = json.loads(prompt_data)
+            data: typing.Dict[str, typing.Any] = json.loads(prompt_data)
             embeddings.append(np.array(data["embedding"]))
 
         user_profile: np.ndarray = np.mean(embeddings, axis=0)
 
         # Find similar prompts from global pool
-        all_prompts: List[str] = self.redis_client.smembers("global_prompts")
-        recommendations: List[Tuple[float, str]] = []
+        all_prompts: typing.List[str] = self.redis_client.smembers("global_prompts")
+        recommendations: typing.List[typing.Tuple[float, str]] = []
 
         for prompt in all_prompts:
-            prompt_data: dict = json.loads(prompt)
+            prompt_data: typing.Dict[str, typing.Any] = json.loads(prompt)
             similarity: float = np.dot(user_profile, np.array(prompt_data["embedding"]))
             recommendations.append((similarity, prompt_data["prompt"]))
 
         recommendations.sort(reverse=True)
         return [r[1] for r in recommendations[:n]]
 
-# Initialize safety and recommendation systems
-content_safety: ContentSafety = ContentSafety()
-recommendation_system: RecommendationSystem = RecommendationSystem()
 
-class ImageRequest(BaseModel):
+class ImageRequest(pydantic.BaseModel):
     """Request model for image generation.
 
     Attributes:
@@ -151,7 +278,7 @@ class ImageRequest(BaseModel):
     text: str
 
 
-class ImageResponse(BaseModel):
+class ImageResponse(pydantic.BaseModel):
     """Response model for image generation.
 
     Attributes:
@@ -179,87 +306,251 @@ class ImageResponse(BaseModel):
     error: str | None = None
 
 
-@stub.function(
+@app.cls(
     gpu="A100",
-    timeout=2,  # 2-second timeout for low latency
-    image=modal.Image.debian_slim().pip_install(
-        "diffusers", "torch", "transformers", "redis"
-    ),
-    secret=modal.Secret.from_name("custom-secret"),
+    timeout=600,  # 10 minutes
+    image=image,
     concurrency_limit=MAX_CONCURRENT_REQUESTS,
-    retries=modal.Retries(max_retries=3),
+    cpu=1,
+    container_idle_timeout=600,
+    secrets=[modal.Secret.from_name("custom-secret")],
 )
-async def generate_image(prompt: str) -> bytes:
-    """Generate an image from a text prompt using Stable Diffusion.
+class Model:
+    """Main model class for image generation service.
 
-    This function uses Stable Diffusion to generate an image based on the input prompt.
-    It includes caching to improve performance for repeated prompts. The generation
-    is optimized for low latency with reduced inference steps and image size.
+    Handles image generation requests with content safety checks,
+    caching, and recommendations.
 
-    Args:
-        prompt (str): The text prompt to generate an image from. Should be descriptive
-            and clear about the desired image.
-
-    Returns:
-        bytes: The generated image in PNG format as bytes
-
-    Raises:
-        ImportError: If required ML libraries are not available
-        Exception: For any generation or processing errors including GPU issues
-
-    Cache Strategy:
-        - Uses Redis to cache generated images
-        - Cache key format: "image_cache:{prompt}"
-        - Cache duration: 1 hour
-        - Returns cached result if available
-
-    Performance Optimizations:
-        - Uses CUDA for GPU acceleration
-        - Reduced inference steps (20)
-        - Smaller image size (512x512)
-        - Disabled safety checker for speed
-        - Float16 precision for faster computation
+    Attributes:
+        pipe: Stable Diffusion pipeline
+        content_safety: Content safety checker
+        recommender: Recommendation system
     """
-    try:
-        import torch
-        from diffusers import StableDiffusionPipeline
-    except (ImportError, ModuleNotFoundError) as e:
-        print(f"Error importing modules: {e}")
 
-    redis_client: Redis = Redis(
-        url=os.environ["REDIS_URL"],
-        token=os.environ["REDIS_TOKEN"],
+    @modal.build()
+    @modal.enter()
+    def initialize(self):
+        """Initialize the model during container build"""
+        self.pipe = diffusers.StableDiffusionPipeline.from_pretrained(
+            "runwayml/stable-diffusion-v1-5",
+            torch_dtype=torch.float16,
+            safety_checker=None,
+        )
+
+        self.content_safety = ContentSafety()
+        self.recommender = RecommendationSystem()
+
+    async def _check_content_safety(self, prompt: str) -> typing.Tuple[bool, str]:
+        """Check if the prompt is safe.
+
+        Args:
+            prompt: Text prompt to check
+
+        Returns:
+            Tuple of (is_safe, message)
+
+        Raises:
+            HTTPException: If content is unsafe
+        """
+        is_safe, message = self.content_safety.is_safe_prompt(prompt)
+        if not is_safe:
+            raise HTTPException(
+                status_code=400, detail=f"Content safety check failed: {message}"
+            )
+        return is_safe, message
+
+    async def _generate_with_cache(self, prompt: str, user_id: str) -> Response:
+        """Internal method to handle generation with caching.
+
+        Args:
+            prompt: Text prompt for image generation
+            user_id: User identifier for recommendations
+
+        Returns:
+            FastAPI Response with generated image or cached result
+        """
+        # Check content safety first
+        await self._check_content_safety(prompt)
+
+        # Store the interaction for recommendations
+        self.recommender.store_user_interaction(user_id, prompt)
+
+        # Check cache
+        redis_client: upstash_redis.Redis = upstash_redis.Redis(
+            url=os.getenv("UPSTASH_REDIS_REST_URL"),
+            token=os.getenv("UPSTASH_REDIS_REST_TOKEN"),
+        )
+        cache_key: str = f"image_cache:{prompt}"
+        cached_result: typing.Optional[str] = redis_client.get(cache_key)
+
+        if cached_result:
+            return Response(
+                content={
+                    "image": cached_result,
+                    "cached": True,
+                    "recommendations": self.recommender.get_recommendations(
+                        user_id, n=5
+                    ),
+                    "safety_check": "passed",
+                },
+                headers={"Content-Type": "application/json"},
+            )
+
+        # Generate new image
+        image_bytes: typing.List[bytes] = self.pipe(prompt, num_images=1)[0]
+        base64_encoded: str = base64.b64encode(image_bytes).decode("utf-8")
+
+        # Cache result
+        redis_client.setex(cache_key, 3600, base64_encoded)
+
+        # Update recommendation system
+        self.recommender.redis_client.sadd(
+            "global_prompts",
+            json.dumps(
+                {
+                    "prompt": prompt,
+                    "embedding": self.recommender.get_embedding(prompt).tolist(),
+                }
+            ),
+        )
+
+        return Response(
+            content={
+                "image": base64_encoded,
+                "cached": False,
+                "recommendations": self.recommender.get_recommendations(user_id, n=5),
+                "safety_check": "passed",
+            },
+            headers={"Content-Type": "application/json"},
+        )
+
+    @modal.web_endpoint(method="POST")
+    async def generate(self, prompt: str, user_id: str = "default_user") -> Response:
+        """Web endpoint for image generation.
+
+        Args:
+            prompt: Text prompt for image generation
+            user_id: Optional user identifier for recommendations
+
+        Returns:
+            FastAPI Response with generated image or error
+        """
+        try:
+            # Apply rate limiting
+            if not request_semaphore.locked():
+                async with request_semaphore:
+                    return await self._generate_with_cache(prompt, user_id)
+            else:
+                raise HTTPException(
+                    status_code=429, detail="Too many requests. Please try again later."
+                )
+        except HTTPException as he:
+            return Response(
+                content={
+                    "error": str(he.detail),
+                    "safety_check": (
+                        "failed" if he.status_code == 400 else "not_performed"
+                    ),
+                },
+                status_code=he.status_code,
+                headers={"Content-Type": "application/json"},
+            )
+        except Exception as e:  # pylint: disable=broad-except
+            return Response(
+                content={"error": str(e)},
+                status_code=500,
+                headers={"Content-Type": "application/json"},
+            )
+
+    @modal.web_endpoint(method="GET")
+    async def get_recommendations(self, user_id: str = "default_user") -> Response:
+        """Get recommendations endpoint.
+
+        Args:
+            user_id: User identifier for fetching personalized recommendations
+
+        Returns:
+            FastAPI Response with recommended prompts
+        """
+        try:
+            async with request_semaphore:  # Also apply rate limiting to recommendations
+                recommendations = self.recommender.get_recommendations(user_id, n=5)
+                return Response(
+                    content={"recommendations": recommendations},
+                    headers={"Content-Type": "application/json"},
+                )
+        except Exception as e:  # pylint: disable=broad-except
+            return Response(
+                content={"error": str(e)},
+                status_code=500,
+                headers={"Content-Type": "application/json"},
+            )
+
+    @modal.web_endpoint(method="GET")
+    async def health(self) -> Response:
+        """Health check endpoint.
+
+        Returns:
+            FastAPI Response with service status and timestamp
+        """
+        return Response(
+            content={
+                "status": "ok",
+                "status_code": 200,
+                "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            },
+            headers={"Content-Type": "application/json"},
+        )
+
+
+@app.function(
+    schedule=modal.Cron("*/5 * * * *"),
+    secrets=[modal.Secret.from_name("custom-secret")],
+)
+def keep_alive() -> None:
+    """Periodic health check function.
+    Runs every 5 minutes to ensure service is responsive.
+    Makes requests to health and generate endpoints.
+    """
+    health_url: str = (
+        "https://womb0comb0--image-generation-model-health.modal.run/"
+    )
+    generate_url: str = (
+        "https://womb0comb0--image-generation-model-generate.modal.run/"
     )
 
-    # Check cache first
-    cache_key: str = f"image_cache:{prompt}"
-    cached_result: bytes | None = redis_client.get(cache_key)
-    if cached_result:
-        return cached_result
+    health_response: requests.Response = requests.get(health_url, timeout=10)
+    print(f"Health check status: {health_response.status_code}")
+    print(f"Health check at: {health_response.json()['timestamp']}")
 
-    # Generate image if not in cache
-    model_id: str = "runwayml/stable-diffusion-v1-5"
-    pipe: StableDiffusionPipeline = StableDiffusionPipeline.from_pretrained(
-        model_id,
-        torch_dtype=torch.float16,
-        safety_checker=None,  # Disable for faster generation
+    headers: typing.Dict[str, str] = {"x-api-key": os.getenv("API_KEY")}
+    print(
+        json.dumps(
+            {
+                "status": "ok",
+                "status_code": 200,
+                "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                "generate_response": requests.get(
+                    generate_url, headers=headers, timeout=10
+                ).json(),
+            }
+        )
     )
-    pipe = pipe.to("cuda")
 
-    # Use smaller image size for faster generation
-    image = pipe(
-        prompt,
-        num_inference_steps=20,  # Reduced steps for faster generation
-        height=512,
-        width=512,
-    ).images[0]
 
-    # Convert and cache result
-    img_byte_arr: io.BytesIO = io.BytesIO()
-    image.save(img_byte_arr, format="PNG")
-    image_bytes: bytes = img_byte_arr.getvalue()
+# @app.local_entrypoint()
+# def main() -> None:
+#     model: Model = Model()
+#     image_bytes: bytes = model.generate.remote(
+#         "a beautiful sunset over mountains with orange and purple sky"
+#     )
+#     try:
+#         with open("output.png", "wb", encoding="utf-8") as f:
+#             f.write(image_bytes)
+#         print("Image saved to output.png")
+#     except (FileNotFoundError, IOError, FileExistsError) as e:
+#         print(f"Error saving image: {e}")
 
-    # Cache for 1 hour
-    redis_client.setex(cache_key, 3600, image_bytes)
 
-    return image_bytes
+# if __name__ == "__main__":
+#     asyncio.run(main())
