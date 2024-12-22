@@ -1,6 +1,5 @@
 'use server';
 
-import { config } from '@/config/config';
 import * as Sentry from '@sentry/nextjs';
 import { registerOTel } from '@vercel/otel';
 
@@ -37,7 +36,7 @@ export async function register() {
       });
     }
 
-    if (config.sentry.dsn) {
+    if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
       if (runtime === 'edge') {
         await import('../sentry.edge.config');
       } else if (runtime === 'nodejs') {

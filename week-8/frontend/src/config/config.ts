@@ -1,9 +1,3 @@
-import { loadEnvConfig } from '@next/env';
-
-// Load environment variables at the start
-const projectDir = process.cwd();
-loadEnvConfig(projectDir);
-
 import { z } from 'zod';
 
 interface Config {
@@ -50,21 +44,26 @@ const loadConfig = (): Config => {
   try {
     const config: Config = {
       app: {
-        environment: (process.env.NODE_ENV || 'development') as 'development' | 'production' | 'test',
+        environment: (process.env.NEXT_PUBLIC_NODE_ENV || 'development') as
+          | 'development'
+          | 'production'
+          | 'test',
       },
       integration: {
         redis: {
-          url: process.env.UPSTASH_REDIS_REST_URL || '',
-          token: process.env.UPSTASH_REDIS_REST_TOKEN || '',
+          url: process.env.NEXT_PUBLIC_UPSTASH_REDIS_REST_URL || '',
+          token: process.env.NEXT_PUBLIC_UPSTASH_REDIS_REST_TOKEN || '',
         },
       },
       blob: {
-        token: process.env.BLOB_READ_WRITE_TOKEN || '',
+        token: process.env.NEXT_PUBLIC_BLOB_READ_WRITE_TOKEN || '',
       },
       sentry: {
-        dsn: process.env.SENTRY_DSN || '',
-        authToken: process.env.SENTRY_AUTH_TOKEN || '',
-        suppressTurbo: Number(process.env.SENTRY_SUPPRESS_TURBOPACK_WARNING || '1'),
+        dsn: process.env.NEXT_PUBLIC_SENTRY_DSN || '',
+        authToken: process.env.NEXT_PUBLIC_SENTRY_AUTH_TOKEN || '',
+        suppressTurbo: Number(
+          process.env.NEXT_PUBLIC_SENTRY_SUPPRESS_TURBOPACK_WARNING || '1',
+        ),
       },
     };
 

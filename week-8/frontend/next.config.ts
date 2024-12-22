@@ -3,7 +3,6 @@ import MillionLint from '@million/lint';
 import {withSentryConfig} from "@sentry/nextjs";
 import type { NextConfig } from "next";
 import path from 'node:path';
-import { config } from '@/config/config';
 
 const withPwa = pwa({
   dest: 'public',
@@ -31,7 +30,7 @@ const nextConfig: NextConfig = {
       allowedOrigins: ['https://*.vercel-storage.com', 'http://localhost:3000', process.env.NEXT_PUBLIC_APP_URL || ''],
       bodySizeLimit: '10mb',
     },
-    turbo: config.app.environment === 'development' ? undefined : {
+    turbo: process.env.NODE_ENV === 'development' ? undefined : {
       resolveAlias: {
         '@': path.resolve(__dirname, 'src'),
       },
@@ -68,7 +67,7 @@ const nextConfig: NextConfig = {
         { key: 'Access-Control-Allow-Credentials', value: 'true' },
         {
           key: 'Access-Control-Allow-Origin',
-          value: config.app.environment === 'production' ? 'https://www.kappathetapi.org' : '*',
+          value: process.env.NODE_ENV === 'production' ? 'https://www.kappathetapi.org' : '*',
         },
         { key: 'Access-Control-Allow-Methods', value: 'GET,DELETE,PATCH,POST,PUT,OPTIONS' },
         {
@@ -96,16 +95,8 @@ const millionConfig = MillionLint.next({
 const sentryConfig = withSentryConfig(nextConfig, {
   org: 'womb0comb0',
   project: 'pentagram',
-  authToken: config.sentry.authToken,
+  authToken: process.env.NEXT_PUBLIC_SENTRY_AUTH_TOKEN,
   silent: true,
-  release: {
-    name: process.env.VERCEL_GIT_COMMIT_SHA || `local-${Date.now()}`,
-    create: true,
-    setCommits: {
-      auto: true,
-      ignoreMissing: true,
-    },
-  },
   sourcemaps: {
     assets: './**/*.{js,map}',
     ignore: ['node_modules/**/*'],

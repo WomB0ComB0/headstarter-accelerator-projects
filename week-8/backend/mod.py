@@ -117,6 +117,7 @@ import dotenv
 import base64
 import requests
 import datetime
+import numpy as np
 
 dotenv.load_dotenv(dotenv.find_dotenv())
 
@@ -127,25 +128,13 @@ image = (
     .apt_install(
         [
             "git",
-            "wget", 
+            "wget",
             "libgl1-mesa-glx",  # Required for OpenCV/image processing
             "libglib2.0-0",
             "build-essential",  # For compiling some Python packages
         ]
     )
-    .pip_install(
-        "python-dotenv",
-        "Werkzeug",
-        "upstash-redis",
-        "sentence-transformers", 
-        "transformers",
-        "fastapi[standard]",
-        "modal",
-        "torch",
-        "diffusers",
-        "uvicorn",
-        "accelerate>=0.25.0",
-    )
+    .pip_install_from_requirements("requirements.txt")
     .env(
         {
             "TORCH_CUDA_ARCH_LIST": "7.5",  # Optimize for A100 GPUs
@@ -165,10 +154,11 @@ MAX_CONCURRENT_REQUESTS: int = 10
 request_semaphore: asyncio.Semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
 
 
-class ContentSafety:
+class ContentSafety(object):
     """Content safety checker for text prompts.
 
     This class provides functionality to check text prompts for inappropriate content
+
     including explicit material and hate speech. It uses:
     - Regular expressions to detect explicit keywords
     - A RoBERTa model fine-tuned on hate speech detection
@@ -231,7 +221,7 @@ class ContentSafety:
         return True, ""
 
 
-class RecommendationSystem:
+class RecommendationSystem(object):
     """Personalized recommendation system for image generation prompts.
 
     Uses sentence embeddings to create user profiles based on their prompt history
@@ -291,10 +281,8 @@ class RecommendationSystem:
             data = json.loads(prompt_data)
             embeddings.append(data["embedding"])
 
-        # Calculate mean embedding using standard Python
-        user_profile = [
-            sum(dim_values) / len(dim_values) for dim_values in zip(*embeddings)
-        ]
+        # Use numpy for mean calculation
+        user_profile = np.mean(embeddings, axis=0)
 
         # Find similar prompts from global pool
         all_prompts = self.redis_client.smembers("global_prompts")
@@ -302,10 +290,8 @@ class RecommendationSystem:
 
         for prompt in all_prompts:
             prompt_data = json.loads(prompt)
-            # Calculate dot product using standard Python
-            similarity = sum(
-                a * b for a, b in zip(user_profile, prompt_data["embedding"])
-            )
+            # Use numpy for dot product
+            similarity = np.dot(user_profile, prompt_data["embedding"])
             recommendations.append((similarity, prompt_data["prompt"]))
 
         recommendations.sort(reverse=True)
@@ -500,59 +486,65 @@ class Model:
             FastAPI Response with service status and timestamp
         """
         return Response(
-            content={
-                "status": "ok",
-                "status_code": 200,
-                "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-            },
-            headers={"Content-Type": "application/json"},
+            content=json.dumps(
+                {
+                    "status": "ok",
+                    "status_code": 200,
+                    "timestamp": datetime.datetime.now(
+                        datetime.timezone.utc
+                    ).isoformat(),
+                }
+            ),
+            media_type="application/json",
         )
 
 
 @app.function(
+    gpu="A100",
+    timeout=600,
+    concurrency_limit=MAX_CONCURRENT_REQUESTS,
+    cpu=1,
+    container_idle_timeout=600,
     schedule=modal.Cron("*/5 * * * *"),
     secrets=[modal.Secret.from_name("custom-secret")],
+    image=image,
 )
 def keep_alive() -> None:
-    """Periodic health check function.
-    Runs every 5 minutes to ensure service is responsive.
-    Makes requests to health and generate endpoints.
-    """
-    health_url: str = "https://womb0comb0--image-generation-model-health.modal.run/"
-    generate_url: str = "https://womb0comb0--image-generation-model-generate.modal.run/"
-
-    health_response: requests.Response = requests.get(health_url, timeout=10)
-    print(f"Health check status: {health_response.status_code}")
-    print(f"Health check at: {health_response.json()['timestamp']}")
-
-    headers: typing.Dict[str, str] = {"x-api-key": os.getenv("API_KEY")}
-    print(
-        json.dumps(
-            {
-                "status": "ok",
-                "status_code": 200,
-                "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "generate_response": requests.get(
-                    generate_url, headers=headers, timeout=10
-                ).json(),
-            }
+    """Periodic health check function."""
+    try:
+        health_url: str = "https://womb0comb0--image-generation-model-health.modal.run/"
+        generate_url: str = (
+            "https://womb0comb0--image-generation-model-generate.modal.run/"
         )
-    )
 
+        health_response: requests.Response = requests.get(health_url, timeout=30)
+        print(f"Health check status: {health_response.status_code}")
 
-# @app.local_entrypoint()
-# def main() -> None:
-#     model: Model = Model()
-#     image_bytes: bytes = model.generate.remote(
-#         "a beautiful sunset over mountains with orange and purple sky"
-#     )
-#     try:
-#         with open("output.png", "wb", encoding="utf-8") as f:
-#             f.write(image_bytes)
-#         print("Image saved to output.png")
-#     except (FileNotFoundError, IOError, FileExistsError) as e:
-#         print(f"Error saving image: {e}")
+        if health_response.ok:
+            try:
+                health_data = health_response.json()
+                print(f"Health check at: {health_data.get('timestamp', 'N/A')}")
+            except json.JSONDecodeError:
+                print(f"Could not parse health response: {health_response.text}")
 
+        headers: typing.Dict[str, str] = {"x-api-key": os.getenv("API_KEY")}
+        generate_response: requests.Response = requests.get(
+            generate_url, headers=headers, timeout=30
+        )
 
-# if __name__ == "__main__":
-#     asyncio.run(main())
+        print(
+            json.dumps(
+                {
+                    "status": "ok",
+                    "status_code": generate_response.status_code,
+                    "timestamp": datetime.datetime.now(
+                        datetime.timezone.utc
+                    ).isoformat(),
+                    "generate_response": (
+                        generate_response.json() if generate_response.ok else None
+                    ),
+                }
+            )
+        )
+    except Exception as e:  # pylint: disable=broad-except
+        print(f"Error in keep_alive: {str(e)}")

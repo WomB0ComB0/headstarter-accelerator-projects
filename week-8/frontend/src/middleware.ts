@@ -2,13 +2,15 @@ import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { config as appConfig } from './config';
 
+
+// Initialize Redis client
 const redis = new Redis({
-  url: appConfig.integration.redis.url,
-  token: appConfig.integration.redis.token,
+  url: process.env.NEXT_PUBLIC_UPSTASH_REDIS_REST_URL!,
+  token: process.env.NEXT_PUBLIC_UPSTASH_REDIS_REST_TOKEN!,
 });
 
+// Create rate limiter instance
 const ratelimit = new Ratelimit({
   redis,
   limiter: Ratelimit.slidingWindow(10, '60s'),
@@ -18,38 +20,51 @@ const ratelimit = new Ratelimit({
 
 export async function middleware(request: NextRequest) {
   try {
-    const ip =
-      request.headers.get('x-forwarded-for') ??
+    // Get client IP for rate limiting
+    const ip = request.headers.get('x-forwarded-for') ??
       request.headers.get('cf-connecting-ip') ??
       request.headers.get('x-real-ip') ??
       '127.0.0.1';
 
+    // Apply rate limiting for API routes
     if (request.nextUrl.pathname.startsWith('/api')) {
       const { success, limit, reset, remaining } = await ratelimit.limit(ip);
 
-      const response = success
-        ? NextResponse.next()
-        : NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+      if (!success) {
+        return NextResponse.json(
+          { error: 'Too many requests' },
+          { 
+            status: 429,
+            headers: {
+              'X-RateLimit-Limit': limit.toString(),
+              'X-RateLimit-Remaining': remaining.toString(),
+              'X-RateLimit-Reset': reset.toString(),
+            }
+          }
+        );
+      }
 
+      // Add rate limit headers to response
+      const response = NextResponse.next();
       response.headers.set('X-RateLimit-Limit', limit.toString());
       response.headers.set('X-RateLimit-Remaining', remaining.toString());
       response.headers.set('X-RateLimit-Reset', reset.toString());
-
+      
       return response;
     }
 
     return NextResponse.next();
   } catch (error) {
-    console.error('Rate limiting error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('Middleware error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except static files and images
-     */
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    '/((?!_next/static|_next/image|favicon.ico|public/).*)',
   ],
-};
+}
