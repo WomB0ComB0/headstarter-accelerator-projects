@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
+import { useState } from 'react';
 
 export default function Home() {
   const [inputText, setInputText] = useState('');
@@ -22,13 +22,13 @@ export default function Home() {
       });
 
       const data = await response.json();
-      
+
       if (data.success && data.image) {
         // Convert the image bytes to base64
         const imageUrl = `data:image/png;base64,${data.image}`;
         setGeneratedImage(imageUrl);
       }
-      
+
       setInputText('');
     } catch (error) {
       console.error('Error:', error);
@@ -43,8 +43,8 @@ export default function Home() {
         {generatedImage && (
           <Card className="w-full max-w-2xl">
             <CardContent className="p-4">
-              <img 
-                src={generatedImage} 
+              <img
+                src={generatedImage}
                 alt="Generated artwork"
                 className="w-full h-auto rounded-lg"
               />

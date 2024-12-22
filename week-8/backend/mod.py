@@ -6,7 +6,7 @@ This module provides a Modal-based service for AI image generation using Stable 
 with content safety checks and personalized recommendations.
 
 Key Features:
-- Image generation using Stable Diffusion v1.5
+- Image generation using Stable Diffusion v1.5 
 - Content safety filtering for inappropriate content and hate speech
 - User-based recommendation system using embeddings
 - Request rate limiting and caching
@@ -14,60 +14,111 @@ Key Features:
 
 The service is built using Modal for serverless deployment and uses:
 - Stable Diffusion for image generation
-- RoBERTa for content safety checks
+- RoBERTa for content safety checks 
 - Sentence Transformers for recommendation embeddings
 - Upstash Redis for caching and storing user interactions
 - FastAPI for API endpoints
 
 Environment Variables Required:
 - UPSTASH_REDIS_REST_URL: URL for Upstash Redis instance
-- UPSTASH_REDIS_REST_TOKEN: Authentication token for Upstash Redis
+- UPSTASH_REDIS_REST_TOKEN: Authentication token for Upstash Redis 
 - API_KEY: API key for service authentication
 
-Example Usage:
-    # Generate an image
+API Endpoints:
     POST /generate
-    {
-        "prompt": "a beautiful sunset over mountains",
-        "user_id": "user123"
-    }
+        Generate an image from a text prompt
+        
+        Request Body:
+        {
+            "prompt": str,  # Text description of desired image
+            "user_id": str  # Optional user ID for recommendations
+        }
+        
+        Returns:
+        {
+            "image": str,  # Base64 encoded image
+            "cached": bool,  # Whether result was from cache
+            "recommendations": List[str],  # Similar prompt suggestions
+            "safety_check": str  # Status of content safety check
+        }
 
-    # Get recommendations
-    GET /recommendations?user_id=user123
+    GET /recommendations
+        Get personalized prompt recommendations
+        
+        Query Parameters:
+        - user_id: str  # User to get recommendations for
+        
+        Returns:
+        {
+            "recommendations": List[str]  # List of recommended prompts
+        }
 
-    # Check health
     GET /health
+        Check service health status
+        
+        Returns:
+        {
+            "status": str,  # Service status
+            "status_code": int,  # HTTP status code
+            "timestamp": str  # Current UTC timestamp
+        }
 
-Author: [Your Name]
+Classes:
+    ContentSafety:
+        Handles content moderation using keyword matching and hate speech detection
+        
+    RecommendationSystem:
+        Manages user profiles and generates personalized prompt recommendations
+        
+    Model:
+        Main service class that coordinates image generation, safety checks,
+        caching and recommendations
+
+Functions:
+    keep_alive():
+        Periodic health check that runs every 5 minutes
+
+Error Handling:
+- Rate limiting enforced via semaphore
+- Content safety violations return 400 status
+- Rate limit exceeded returns 429 status
+- Other errors return 500 status with error details
+
+Caching:
+- Generated images cached in Redis for 1 hour
+- User interaction history stored for recommendations
+- Global prompt pool maintained for recommendations
+
+Security:
+- API key authentication required
+- Content safety checks on all prompts
+- Rate limiting prevents abuse
+
+Performance:
+- GPU acceleration on A100
+- Concurrent request limiting
+- Response caching
+- Optimized model loading
+
+Author: Mike Odnis
 Version: 1.0.0
 """
 
 import modal
 import asyncio
-import pydantic
 import os
 import typing
-import numpy as np
 import upstash_redis
 import json
 import sentence_transformers
 import transformers
 import re
 import dotenv
-import collections
 import base64
 import requests
 import datetime
 
 dotenv.load_dotenv(dotenv.find_dotenv())
-
-book: collections.defaultdict[str, str] = collections.defaultdict(str)
-try:
-    with open("requirements.txt", "r", encoding="utf-8") as file:
-        for line in file:
-            book[line.strip()] = line.strip()
-except (FileNotFoundError, IOError, FileExistsError) as e:
-    print(f"Error loading requirements: {e}")
 
 app = modal.App("image-generation")
 
@@ -76,23 +127,30 @@ image = (
     .apt_install(
         [
             "git",
-            "wget",
+            "wget", 
             "libgl1-mesa-glx",  # Required for OpenCV/image processing
             "libglib2.0-0",
             "build-essential",  # For compiling some Python packages
         ]
     )
-    .pip_install([val for val in book.values()])
+    .pip_install(
+        "python-dotenv",
+        "Werkzeug",
+        "upstash-redis",
+        "sentence-transformers", 
+        "transformers",
+        "fastapi[standard]",
+        "modal",
+        "torch",
+        "diffusers",
+        "uvicorn",
+        "accelerate>=0.25.0",
+    )
     .env(
         {
             "TORCH_CUDA_ARCH_LIST": "7.5",  # Optimize for A100 GPUs
             "PYTHONUNBUFFERED": "1",
         }
-    )
-    .add_local_file(
-        local_path="requirements.txt",
-        remote_path="/app/requirements.txt",
-        copy=True,
     )
     .workdir("/app")
 )
@@ -199,111 +257,59 @@ class RecommendationSystem:
             token=os.getenv("UPSTASH_REDIS_REST_TOKEN"),
         )
 
-    def get_embedding(self, text: str) -> np.ndarray:
+    def get_embedding(self, text: str) -> list[float]:
         """Generate embedding vector for a text prompt.
 
         Args:
             text: Input text to embed
 
         Returns:
-            Numpy array containing the embedding vector
+            List containing the embedding vector
         """
-        return self.model.encode([text])[0]
+        return self.model.encode([text])[0].tolist()
 
     def store_user_interaction(self, user_id: str, prompt: str) -> None:
-        """Store a user's prompt interaction in Redis.
-
-        Args:
-            user_id: Unique identifier for the user
-            prompt: The text prompt used by the user
-        """
-        embedding: np.ndarray = self.get_embedding(prompt)
-        user_history: str = f"user_history:{user_id}"
+        """Store a user's prompt interaction in Redis."""
+        embedding = self.get_embedding(prompt)
+        user_history = f"user_history:{user_id}"
         self.redis_client.lpush(
             user_history,
-            json.dumps({"prompt": prompt, "embedding": embedding.tolist()}),
+            json.dumps({"prompt": prompt, "embedding": embedding}),
         )
 
-    def get_recommendations(self, user_id: str, n: int = 5) -> typing.List[str]:
-        """Get personalized prompt recommendations for a user.
-
-        Args:
-            user_id: Unique identifier for the user
-            n: Number of recommendations to return
-
-        Returns:
-            List of recommended prompt strings
-        """
-        # Get user's recent prompts
-        user_history: str = f"user_history:{user_id}"
-        recent_prompts: typing.List[str] = self.redis_client.lrange(user_history, 0, 9)
+    def get_recommendations(self, user_id: str, n: int = 5) -> list[str]:
+        """Get personalized prompt recommendations for a user."""
+        user_history = f"user_history:{user_id}"
+        recent_prompts = self.redis_client.lrange(user_history, 0, 9)
 
         if not recent_prompts:
             return []
 
         # Calculate average embedding of recent prompts
-        embeddings: typing.List[np.ndarray] = []
+        embeddings = []
         for prompt_data in recent_prompts:
-            data: typing.Dict[str, typing.Any] = json.loads(prompt_data)
-            embeddings.append(np.array(data["embedding"]))
+            data = json.loads(prompt_data)
+            embeddings.append(data["embedding"])
 
-        user_profile: np.ndarray = np.mean(embeddings, axis=0)
+        # Calculate mean embedding using standard Python
+        user_profile = [
+            sum(dim_values) / len(dim_values) for dim_values in zip(*embeddings)
+        ]
 
         # Find similar prompts from global pool
-        all_prompts: typing.List[str] = self.redis_client.smembers("global_prompts")
-        recommendations: typing.List[typing.Tuple[float, str]] = []
+        all_prompts = self.redis_client.smembers("global_prompts")
+        recommendations = []
 
         for prompt in all_prompts:
-            prompt_data: typing.Dict[str, typing.Any] = json.loads(prompt)
-            similarity: float = np.dot(user_profile, np.array(prompt_data["embedding"]))
+            prompt_data = json.loads(prompt)
+            # Calculate dot product using standard Python
+            similarity = sum(
+                a * b for a, b in zip(user_profile, prompt_data["embedding"])
+            )
             recommendations.append((similarity, prompt_data["prompt"]))
 
         recommendations.sort(reverse=True)
         return [r[1] for r in recommendations[:n]]
-
-
-class ImageRequest(pydantic.BaseModel):
-    """Request model for image generation.
-
-    Attributes:
-        text (str): The prompt text to generate an image from. Should be a descriptive
-            text prompt that will be used by Stable Diffusion to generate the image.
-
-    Example:
-        {
-            "text": "a beautiful sunset over mountains with orange and purple sky"
-        }
-    """
-
-    text: str
-
-
-class ImageResponse(pydantic.BaseModel):
-    """Response model for image generation.
-
-    Attributes:
-        success (bool): Whether the generation was successful
-        image (bytes | None): The generated image bytes in PNG format if successful
-        error (str | None): Error message if generation failed, None if successful
-
-    Example Success:
-        {
-            "success": true,
-            "image": <bytes>,
-            "error": null
-        }
-
-    Example Error:
-        {
-            "success": false,
-            "image": null,
-            "error": "Content safety check failed"
-        }
-    """
-
-    success: bool
-    image: bytes | None = None
-    error: str | None = None
 
 
 @app.cls(
@@ -409,7 +415,7 @@ class Model:
             json.dumps(
                 {
                     "prompt": prompt,
-                    "embedding": self.recommender.get_embedding(prompt).tolist(),
+                    "embedding": self.recommender.get_embedding(prompt),
                 }
             ),
         )
@@ -512,12 +518,8 @@ def keep_alive() -> None:
     Runs every 5 minutes to ensure service is responsive.
     Makes requests to health and generate endpoints.
     """
-    health_url: str = (
-        "https://womb0comb0--image-generation-model-health.modal.run/"
-    )
-    generate_url: str = (
-        "https://womb0comb0--image-generation-model-generate.modal.run/"
-    )
+    health_url: str = "https://womb0comb0--image-generation-model-health.modal.run/"
+    generate_url: str = "https://womb0comb0--image-generation-model-generate.modal.run/"
 
     health_response: requests.Response = requests.get(health_url, timeout=10)
     print(f"Health check status: {health_response.status_code}")

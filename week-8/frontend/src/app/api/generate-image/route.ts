@@ -11,7 +11,7 @@ export async function POST(request: Request) {
           success: false,
           error: 'Invalid prompt provided',
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to generate image',
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -53,14 +53,14 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
   try {
     const userId = request.headers.get('x-user-id');
-    
+
     if (!userId) {
       return NextResponse.json(
         {
           success: false,
           error: 'User ID required',
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -85,7 +85,7 @@ export async function GET(request: Request) {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to fetch recommendations',
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

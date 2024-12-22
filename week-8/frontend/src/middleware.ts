@@ -2,13 +2,11 @@ import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { getConfig } from './config';
-
-const { redis: redisConfig } = getConfig('integration');
+import { config as appConfig } from './config';
 
 const redis = new Redis({
-  url: redisConfig.url,
-  token: redisConfig.token,
+  url: appConfig.integration.redis.url,
+  token: appConfig.integration.redis.token,
 });
 
 const ratelimit = new Ratelimit({

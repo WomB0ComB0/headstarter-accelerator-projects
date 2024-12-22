@@ -9,6 +9,7 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
+.million
 
 # virtual environments
 /env
@@ -57,6 +58,7 @@ yarn-error.log*
 
 # environment files
 .env
+.env.*.local
 .env.local
 secrets.toml
 
@@ -68,3 +70,6 @@ secrets.toml
 next-env.d.ts
 
 package-lock.json
+
+# Sentry Config File
+.env.sentry-build-plugin
