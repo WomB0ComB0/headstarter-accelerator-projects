@@ -1,0 +1,27 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Prompt {
+  id        String     @id @default(cuid())
+  text      String
+  createdAt DateTime   @default(now())
+  responses Response[]
+}
+
+model Response {
+  id           String   @id @default(cuid())
+  promptId     String
+  prompt       Prompt   @relation(fields: [promptId], references: [id])
+  llmProvider  String // e.g. "gpt-4", "claude", etc.
+  response     String
+  accuracy     Float?
+  relevancy    Float?
+  responseTime Float // in milliseconds
+  createdAt    DateTime @default(now())
+}
