@@ -26,7 +26,7 @@ export async function POST(req: Request) {
     const response = await prisma.response.create({
       data: {
         promptId: promptRecord.id,
-        llmProvider: "gemini-pro",
+        llmProvider: "gemini-1.5-flash",
         response: responseText,
         accuracy: evaluation.accuracy,
         relevancy: evaluation.relevancy,
