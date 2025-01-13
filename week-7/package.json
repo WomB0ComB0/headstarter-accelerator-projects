@@ -22,7 +22,7 @@
     "groq-sdk": "^0.9.0",
     "jotai": "^2.10.3",
     "lucide-react": "^0.468.0",
-    "next": "15.0.4",
+    "next": "15.1.2",
     "prettier": "^3.4.2",
     "puppeteer": "^23.10.3",
     "react": "^19.0.0",
