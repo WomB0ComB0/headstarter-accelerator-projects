@@ -1,5 +1,5 @@
 import { createAPIFileRoute } from "@tanstack/start/api";
-import { auth } from "~/lib/server/auth";
+import { auth } from "~/lib/middleware/server/auth";
 
 export const APIRoute = createAPIFileRoute("/api/auth/$")({
   GET: ({ request }) => {

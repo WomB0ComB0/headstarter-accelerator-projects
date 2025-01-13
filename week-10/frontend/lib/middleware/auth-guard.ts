@@ -1,6 +1,6 @@
 import { createMiddleware } from "@tanstack/start";
 import { getWebRequest, setResponseStatus } from "vinxi/http";
-import { auth } from "~/lib/server/auth";
+import { auth } from "~/lib/middleware/server/auth";
 
 /**
  * Middleware to force authentication on a server function, and add the user to the context.

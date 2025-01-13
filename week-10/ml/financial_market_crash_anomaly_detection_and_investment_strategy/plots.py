@@ -4,7 +4,10 @@ import typer
 from loguru import logger
 from tqdm import tqdm
 
-from financial_market_crash_anomaly_detection_and_investment_strategy.config import FIGURES_DIR, PROCESSED_DATA_DIR
+from financial_market_crash_anomaly_detection_and_investment_strategy.config import (
+    FIGURES_DIR,
+    PROCESSED_DATA_DIR,
+)
 
 app = typer.Typer()
 

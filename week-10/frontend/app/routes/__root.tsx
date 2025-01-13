@@ -10,18 +10,18 @@ import { createServerFn, Meta, Scripts } from "@tanstack/start";
 import { lazy, Suspense } from "react";
 import { getWebRequest } from "vinxi/http";
 
-import { auth } from "~/lib/server/auth";
+import { auth } from "~/lib/middleware/server/auth";
 import appCss from "~/lib/styles/app.css?url";
 
 const TanStackRouterDevtools =
   process.env.NODE_ENV === "production"
     ? () => null // Render nothing in production
     : lazy(() =>
-        // Lazy load in development
-        import("@tanstack/router-devtools").then((res) => ({
-          default: res.TanStackRouterDevtools,
-        })),
-      );
+      // Lazy load in development
+      import("@tanstack/router-devtools").then((res) => ({
+        default: res.TanStackRouterDevtools,
+      })),
+    );
 
 const getUser = createServerFn({ method: "GET" }).handler(async () => {
   const { headers } = getWebRequest();
