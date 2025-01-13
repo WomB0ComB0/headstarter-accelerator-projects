@@ -60,6 +60,16 @@ create_environment:
 data: requirements
 	$(PYTHON_INTERPRETER) financial_market_crash_anomaly_detection_and_investment_strategy/dataset.py
 
+## Process raw data and generate features
+.PHONY: process_data
+process_data: requirements
+	$(PYTHON_INTERPRETER) financial_market_crash_anomaly_detection_and_investment_strategy/dataset.py
+
+## Train anomaly detection model
+.PHONY: train_model
+train_model: requirements process_data
+	$(PYTHON_INTERPRETER) financial_market_crash_anomaly_detection_and_investment_strategy/modeling/train.py
+
 
 #################################################################################
 # Self Documenting Commands                                                     #

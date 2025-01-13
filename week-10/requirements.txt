@@ -7,6 +7,9 @@ loguru
 matplotlib
 mkdocs
 notebook
+yfinance
+ta
+tensorflow
 numpy
 pandas
 pip
