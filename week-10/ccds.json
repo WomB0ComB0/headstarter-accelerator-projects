@@ -1,0 +1,23 @@
+{
+    "project_name": "financial_market_crash_anomaly_detection_and_investment_strategy",
+    "repo_name": "{{ cookiecutter.project_name.lower().replace(' ', '_') }}",
+    "module_name": "{{ cookiecutter.project_name.lower().replace(' ', '_').replace('-', '_') }}",
+    "author_name": "Mike Odnis",
+    "description": "Financial Market Crash Anomaly Detection & Investment Strategy",
+    "python_version_number": "3.11",
+    "dataset_storage": [
+        {"none": "none"}
+    ],
+    "environment_manager": [
+        "virtualenv"
+    ],
+    "dependency_file": [
+        "requirements.txt"
+    ],
+    "pydata_packages": [
+        "basic"
+    ],
+    "open_source_license": ["BSD-3-Clause"],
+    "docs": ["mkdocs"],
+    "include_code_scaffold": ["Yes"]
+}
