@@ -1,0 +1,1 @@
+import{toNodeHandler as n}from"better-call";var s=e=>"handler"in e?n(e.handler):n(e);function i(e){let t=new Headers;for(let[o,r]of Object.entries(e))r!==void 0&&(Array.isArray(r)?r.forEach(d=>t.append(o,d)):t.set(o,r));return t}export{i as fromNodeHeaders,s as toNodeHandler};

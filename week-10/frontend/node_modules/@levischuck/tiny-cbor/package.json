@@ -1,0 +1,24 @@
+{
+  "module": "./esm/index.js",
+  "main": "./script/index.js",
+  "name": "@levischuck/tiny-cbor",
+  "version": "0.2.2",
+  "description": "Tiny CBOR library",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/levischuck/tiny-cbor.git"
+  },
+  "bugs": {
+    "url": "https://github.com/levischuck/tiny-cbor/issues"
+  },
+  "exports": {
+    ".": {
+      "import": "./esm/index.js",
+      "require": "./script/index.js"
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^18.11.9"
+  }
+}
