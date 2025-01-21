@@ -18,3 +18,5 @@ scikit-learn
 tqdm
 typer
 -e .
+seaborn
+openai

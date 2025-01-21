@@ -6,6 +6,9 @@ PROJECT_NAME = financial_market_crash_anomaly_detection_and_investment_strategy
 PYTHON_VERSION = 3.11
 PYTHON_INTERPRETER = python
 
+# Define the path to the CSV file
+FEATURES_CSV = data/processed/features.csv
+
 #################################################################################
 # COMMANDS                                                                      #
 #################################################################################
@@ -63,12 +66,18 @@ data: requirements
 ## Process raw data and generate features
 .PHONY: process_data
 process_data: requirements
-	$(PYTHON_INTERPRETER) financial_market_crash_anomaly_detection_and_investment_strategy/dataset.py
+	@echo "Processing data using $(FEATURES_CSV)"
+	$(PYTHON_INTERPRETER) financial_market_crash_anomaly_detection_and_investment_strategy/dataset.py --input $(FEATURES_CSV)
 
 ## Train anomaly detection model
 .PHONY: train_model
 train_model: requirements process_data
 	$(PYTHON_INTERPRETER) financial_market_crash_anomaly_detection_and_investment_strategy/modeling/train.py
+
+## Generate plots from models
+.PHONY: plot_models
+plot_models: requirements
+	$(PYTHON_INTERPRETER) financial_market_crash_anomaly_detection_and_investment_strategy/plots.py --output-path reports/figures
 
 
 #################################################################################
