@@ -1,0 +1,7 @@
+- https://arxiv.org/pdf/2209.07663
+- https://support.tiktok.com/en/using-tiktok/exploring-videos/how-tiktok-recommends-content
+- https://nextjs.org/docs/app/building-your-application/optimizing/videos
+- https://next-video.dev/
+- https://clerk.com/docs/references/nextjs/add-onboarding-flow
+- https://github.com/weaviate/BookRecs
+- https://github.com/clerk/nextjs-auth-starter-template
