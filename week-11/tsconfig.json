@@ -20,9 +20,17 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"]
-    }
+      "@/*": ["./*"],
+      "~/*": ["./*"]
+    },
+    "types": [
+      "@clerk/nextjs",
+      "uploadthing/client",
+      "react-intersection-observer",
+      "lucide-react"
+    ],
+    "baseUrl": "."
   },
-  "include": ["video.d.ts", "next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
   "exclude": ["node_modules"]
 }

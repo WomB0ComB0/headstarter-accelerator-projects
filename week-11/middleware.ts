@@ -1,11 +1,14 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { authMiddleware } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
 
-const isProtectedRoute = createRouteMatcher(["/dashboard(.*)"]);
-
-export default clerkMiddleware(async (auth, req) => {
-  if (isProtectedRoute(req)) await auth.protect();
+export default authMiddleware({
+  publicRoutes: ["/", "/api/uploadthing"],
+  ignoredRoutes: ["/api/uploadthing"],
+  beforeAuth: (req) => {
+    // Your beforeAuth logic here
+  },
 });
 
 export const config = {
-  matcher: ["/((?!.*\\..*|_next).*)", "/"],
+  matcher: ["/((?!.+\\.[\\w]+$|_next).*)", "/", "/(api|trpc)(.*)"],
 };
