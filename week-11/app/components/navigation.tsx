@@ -15,23 +15,23 @@ export function Navigation() {
         </div>
 
         <nav className="flex-1">
-          <Link href="/" className="flex items-center p-4 hover:bg-gray-900 rounded-lg mb-2 text-white">
+          <Link href="/" className="flex items-center p-4 mb-2 text-white rounded-lg hover:bg-gray-900">
             <Home className="w-5 h-5 mr-2" />
             For You
           </Link>
-          <Link href="/following" className="flex items-center p-4 hover:bg-gray-900 rounded-lg mb-2 text-white">
+          <Link href="/following" className="flex items-center p-4 mb-2 text-white rounded-lg hover:bg-gray-900">
             <Compass className="w-5 h-5 mr-2" />
             Following
           </Link>
           {isSignedIn && (
-            <Link href="/upload" className="flex items-center p-4 hover:bg-gray-900 rounded-lg mb-2 text-white">
+            <Link href="/upload" className="flex items-center p-4 mb-2 text-white rounded-lg hover:bg-gray-900">
               <Upload className="w-5 h-5 mr-2" />
               Upload
             </Link>
           )}
         </nav>
 
-        <div className="mt-auto p-4">
+        <div className="p-4 mt-auto">
           {isSignedIn ? (
             <div className="flex items-center gap-2">
               <UserButton afterSignOutUrl="/" />
@@ -49,3 +49,4 @@ export function Navigation() {
     </div>
   );
 } 
+// test
