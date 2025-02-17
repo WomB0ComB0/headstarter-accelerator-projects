@@ -1,0 +1,53 @@
+<body>
+    <p>The source code for this example is available <a href="https://github.com/judge0/ide/tree/master/embed" target="_blank">here</a>.</p>
+
+    <iframe id="judge0-ide" src="https://ide.judge0.com?judge0.style=minimal&judge0.theme=dark&judge0.styleOptions.showNavigation=false" frameborder="0" width="80%" height="300px"></iframe>
+
+    <hr />
+    <button onclick="getDataFromJudge0IDE()">Get Data</button>
+    <button onclick="runCodeInsideJudge0IDE()">Run Code</button>
+    <pre id="judge0-ide-data-viewer" style="padding: 1rem; background-color: #eee;"></pre>
+
+    <script>
+        let iframeDataViewer = document.getElementById("judge0-ide-data-viewer");
+        let judge0IDE = document.getElementById("judge0-ide");
+
+        window.onmessage = function(e) {
+            if (!e.data) {
+                return;
+            }
+
+            iframeDataViewer.innerHTML = JSON.stringify(e.data, null, 2);
+
+            if (e.data.event === "initialised") {
+                // Make sure to only post data after the IDE is initialised
+                // When setting the data, make sure to set the action to "set".
+                //
+                // The data you send will be used to populate the IDE.
+                // You don't have to send all the data, only the data you want to set.
+                //
+                // Make sure to get your API key at https://platform.sulu.sh/apis/judge0
+                // If you don't set your API key, the default API key will be used, which has limitations and should not be used in production.
+                judge0IDE.contentWindow.postMessage({
+                    action: "set",
+                    api_key: "",
+                    source_code: "Welcome!",
+                    language_id: 43,
+                    flavor: "CE",
+                    stdin: "Hello, World!",
+                    stdout: "",
+                    compiler_options: "",
+                    command_line_arguments: "",
+                }, '*');
+            }
+        };
+
+        function getDataFromJudge0IDE() {
+            judge0IDE.contentWindow.postMessage({action: "get"}, '*');
+        }
+
+        function runCodeInsideJudge0IDE() {
+            judge0IDE.contentWindow.postMessage({action: "run"}, '*');
+        }
+    </script>
+</body>

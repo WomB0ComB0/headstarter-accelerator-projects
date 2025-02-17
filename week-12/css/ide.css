@@ -1,0 +1,50 @@
+.judge0-file-menu {
+    min-width: 15rem !important;
+}
+
+#judge0-chat-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 0;
+}
+
+#judge0-chat-container > .ui.menu {
+    border-bottom: none;
+}
+
+#judge0-chat-messages {
+    flex-grow: 1;
+    overflow-y: auto;
+}
+
+#judge0-chat-messages pre {
+    overflow-x: auto;
+}
+
+.judge0-user-message {
+    margin-left: auto !important;
+    margin-right: 1em !important;
+    margin-top: 1em !important;
+    max-width: 66%;
+    overflow-wrap: break-word;
+    width: fit-content;
+}
+
+#judge0-chat-input-container {
+    margin-top: 0;
+}
+
+#judge0-status-line:empty {
+    display: none;
+}
+
+.judge0-hidden, .judge0-style-hidden {
+    display: none !important;
+}
+
+@media (display-mode: standalone) {
+    .judge0-standalone-hidden {
+        display: none !important;
+    }
+}

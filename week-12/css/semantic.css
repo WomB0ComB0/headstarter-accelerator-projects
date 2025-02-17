@@ -1,0 +1,72 @@
+.ui.primary.button,
+.ui.primary.buttons .button {
+    background-color: #2b3a8f;
+}
+
+.ui.primary.button:hover,
+.ui.primary.buttons .button:hover {
+    background-color: #202d81;
+}
+
+.ui.primary.button:focus,
+.ui.primary.buttons .button:focus {
+    background-color: #17267a;
+}
+
+.ui.primary.button:active,
+.ui.primary.buttons .button:active {
+    background-color: #241e63;
+}
+
+.ui.primary.active.button,
+.ui.primary.button .active.button:active,
+.ui.primary.buttons .active.button,
+.ui.primary.buttons .active.button:active {
+    background-color: #1c2e85;
+}
+
+.ui.selection.dropdown.item>.delete.icon,
+.ui.selection.dropdown.item>.dropdown.icon,
+.ui.selection.dropdown.item>.search.icon {
+    margin: -.78571429em;
+    padding: .91666667em;
+}
+
+.ui.selection.dropdown.item {
+    border: none;
+}
+
+.ui.loading.segment:before {
+    background: inherit !important;
+}
+
+.ui[class*="bottom center attached"].label {
+    border-radius: .28571429rem .28571429rem 0 0;
+    bottom: 0;
+    left: 50%;
+    position: fixed;
+    top: auto;
+    transform: translate(-50%);
+    width: fit-content;
+}
+
+.ui.label {
+    z-index: 1000;
+    font-family: "JetBrains Mono";
+    font-weight: normal;
+}
+
+.ui.toggle.checkbox input:checked~.box:before,
+.ui.toggle.checkbox input:checked~label:before {
+    background-color: #2b3a8f !important;
+}
+
+.ui.toggle.checkbox input:focus:checked~.box:before,
+.ui.toggle.checkbox input:focus:checked~label:before {
+    background-color: #2b3a8f !important
+}
+
+.ui.inverted.menu .ui.toggle.checkbox .box,
+.ui.inverted.menu .ui.toggle.checkbox label {
+    color: rgba(255, 255, 255, .9) !important;
+}

@@ -1,0 +1,23 @@
+{
+    "name": "Judge0 IDE",
+    "short_name": "Judge0 IDE",
+    "description": "Free and open-source online code editor and compiler",
+    "display": "standalone",
+    "start_url": "/",
+    "scope": "/",
+    "theme_color": "#ffffff",
+    "background_color": "#ffffff",
+    "icons": [
+        {
+            "src": "/favicons/favicon-192x192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "/favicons/favicon-512x512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ]
+}
