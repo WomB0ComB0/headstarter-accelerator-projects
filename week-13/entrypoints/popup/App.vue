@@ -1,20 +1,86 @@
 <script lang="ts" setup>
-import HelloWorld from '@/components/HelloWorld.vue';
+import { ref } from 'vue';
+
+const logs = ref<string[]>([]);
+const error = ref<string>('');
+
+function addLog(message: string) {
+  logs.value.push(`[${new Date().toLocaleTimeString()}] ${message}`);
+}
+
+function clearLogs() {
+  logs.value = [];
+  error.value = '';
+}
+
+// Example usage
+addLog('Popup initialized');
 </script>
 
 <template>
-  <div>
-    <a href="https://wxt.dev" target="_blank">
-      <img src="/wxt.svg" class="logo" alt="WXT logo" />
-    </a>
-    <a href="https://vuejs.org/" target="_blank">
-      <img src="@/assets/vue.svg" class="logo vue" alt="Vue logo" />
-    </a>
+  <div class="debug-container">
+    <h1>Extension Debugger</h1>
+    
+    <div class="log-container">
+      <div v-for="(log, index) in logs" :key="index" class="log-entry">
+        {{ log }}
+      </div>
+    </div>
+
+    <div v-if="error" class="error-message">
+      Error: {{ error }}
+    </div>
+
+    <div class="controls">
+      <button @click="clearLogs">Clear Logs</button>
+      <button @click="addLog('Test log entry')">Add Test Log</button>
+    </div>
   </div>
-  <HelloWorld msg="WXT + Vue" />
 </template>
 
 <style scoped>
+.debug-container {
+  width: 400px;
+  padding: 1rem;
+  font-family: monospace;
+}
+
+.log-container {
+  height: 300px;
+  overflow-y: auto;
+  border: 1px solid #ccc;
+  padding: 0.5rem;
+  margin-bottom: 1rem;
+  background: #f5f5f5;
+}
+
+.log-entry {
+  margin: 0.25rem 0;
+  color: #333;
+}
+
+.error-message {
+  color: #ff0000;
+  margin-bottom: 1rem;
+}
+
+.controls {
+  display: flex;
+  gap: 0.5rem;
+}
+
+button {
+  padding: 0.5rem 1rem;
+  background: #4CAF50;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #45a049;
+}
+
 .logo {
   height: 6em;
   padding: 1.5em;
