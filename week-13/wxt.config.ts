@@ -8,7 +8,14 @@ export default defineConfig({
   modules: ['@wxt-dev/module-vue'],
   outDir: 'out',
   manifest: {
-    permissions: ['activeTab', 'scripting'],
+    permissions: [
+      'activeTab',
+      'scripting',
+      'aiLanguageModelOriginTrial',
+      'tabs',
+      'webNavigation',
+      'storage',
+    ],
     host_permissions: ['<all_urls>'],
   },
 } satisfies UserConfig);
